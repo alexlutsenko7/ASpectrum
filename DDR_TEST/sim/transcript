@@ -1,0 +1,39 @@
+# ** Note: (vsim-220) 'C:/Altera/questa_fse/win64/../modelsim.ini' is used as the ini file.
+# vsim -c -quiet tb_ddr_test -do "run -all; quit -f" 
+# Start time: 14:58:12 on Oct 05,2026
+# ** Note: (vsim-3812) Design is being optimized...
+# ** Note: (vopt-220) 'C:/Altera/questa_fse/win64/../modelsim.ini' is used as the ini file.
+# //  Questa Altera Starter FPGA Edition-64
+# //  Version 2025.2 win64 May 31 2025
+# //
+# // Unpublished work. Copyright 2025 Siemens
+# //
+# // This material contains trade secrets or otherwise confidential information
+# // owned by Siemens Industry Software Inc. or its affiliates (collectively,
+# // "SISW"), or its licensors. Access to and use of this information is strictly
+# // limited as set forth in the Customer's applicable agreements with SISW.
+# //
+# // This material may not be copied, distributed, or otherwise disclosed outside
+# // of the Customer's facilities without the express written permission of SISW,
+# // and may not be used in any way not expressly authorized by SISW.
+# //
+# run -all
+# TB: CLK=112 MHz, TCO=5.00 ns, SD_SHIFT=1.34 ns, PASSES=1
+#            201509424 TB: controller ready
+#            201520227 SDRAM MODEL: mode register set, CL=2
+# ---------------------------------------------------------------
+#  passes=1  tester error=0  tb read errors=0  model errors=0
+#  writes: 524288  latency min/avg/max = 1 / 3.34 / 18 clk
+#  reads : 524288  latency min/avg/max = 4 / 5.94 / 20 clk
+#    read latency  4 clk : 147158
+#    read latency  6 clk : 264603
+#    read latency  8 clk : 107602
+#    read latency 13 clk : 2903
+#    read latency 20 clk : 2022
+#  SDRAM cmds: ACT=695929 PRE=683221 RD=524288 WR=524288 REF=8253  max REF gap=7597.7 ns
+# ---------------------------------------------------------------
+# TB RESULT: PASS
+# ** Note: $finish    : tb_ddr_test.sv(176)
+#    Time: 62385600816 ps  Iteration: 2  Instance: /tb_ddr_test
+# End time: 15:02:05 on Oct 05,2026, Elapsed time: 0:03:53
+# Errors: 0, Warnings: 0
