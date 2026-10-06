@@ -1,0 +1,194 @@
+# ASpectrum -- ZX Spectrum 128K, QMTECH Cyclone IV EP4CE15 + QM_Atrix adapter (prototype fit)
+set_global_assignment -name FAMILY "Cyclone IV E"
+set_global_assignment -name DEVICE EP4CE15F23C8
+set_global_assignment -name TOP_LEVEL_ENTITY ASpectrum
+set_global_assignment -name LAST_QUARTUS_VERSION "25.1std.0 Lite Edition"
+set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
+set_global_assignment -name NUM_PARALLEL_PROCESSORS ALL
+set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
+set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
+set_global_assignment -name CYCLONEII_RESERVE_NCEO_AFTER_CONFIGURATION "USE AS REGULAR IO"
+set_global_assignment -name STRATIX_DEVICE_IO_STANDARD "3.3-V LVTTL"
+# Unused pins must stay plain inputs (AB17/AA17 are grounded by the adapter)
+set_global_assignment -name RESERVE_ALL_UNUSED_PINS_WEAK_PULLUP "AS INPUT TRI-STATED"
+set_global_assignment -name OPTIMIZATION_TECHNIQUE SPEED
+set_global_assignment -name OPTIMIZE_HOLD_TIMING "ALL PATHS"
+set_global_assignment -name OPTIMIZE_MULTI_CORNER_TIMING ON
+
+set_global_assignment -name VERILOG_FILE rtl/ASpectrum.v
+set_global_assignment -name VERILOG_FILE rtl/zx_system.v
+set_global_assignment -name VERILOG_FILE rtl/zx_bus.v
+set_global_assignment -name VERILOG_FILE rtl/cpu_t80.v
+set_global_assignment -name VERILOG_FILE rtl/zx_video.v
+set_global_assignment -name VERILOG_FILE rtl/zx_keyboard.v
+set_global_assignment -name VERILOG_FILE rtl/rom_loader.v
+set_global_assignment -name VERILOG_FILE rtl/flash_if.v
+set_global_assignment -name VERILOG_FILE rtl/sd_dac.v
+set_global_assignment -name VERILOG_FILE rtl/sdram_ram.v
+set_global_assignment -name VERILOG_FILE rtl/sys_pll.v
+set_global_assignment -name VERILOG_FILE rtl/vga_pll.v
+set_global_assignment -name VERILOG_FILE rtl/vga_clkmux.v
+set_global_assignment -name VERILOG_FILE rtl/vga_timing.v
+set_global_assignment -name VERILOG_FILE rtl/jt49/jt49_bus.v
+set_global_assignment -name VERILOG_FILE rtl/jt49/jt49.v
+set_global_assignment -name VERILOG_FILE rtl/jt49/jt49_cen.v
+set_global_assignment -name VERILOG_FILE rtl/jt49/jt49_div.v
+set_global_assignment -name VERILOG_FILE rtl/jt49/jt49_eg.v
+set_global_assignment -name VERILOG_FILE rtl/jt49/jt49_exp.v
+set_global_assignment -name VERILOG_FILE rtl/jt49/jt49_noise.v
+set_global_assignment -name VHDL_FILE ../T80/T80_Pack.vhd
+set_global_assignment -name VHDL_FILE ../T80/T80_ALU.vhd
+set_global_assignment -name VHDL_FILE ../T80/T80_MCode.vhd
+set_global_assignment -name VHDL_FILE ../T80/T80_Reg.vhd
+set_global_assignment -name VHDL_FILE ../T80/T80.vhd
+set_global_assignment -name SDC_FILE ASpectrum.sdc
+
+# SDRAM: registers in the I/O cells (as DDR_TEST)
+set_instance_assignment -name ALLOW_SYNCH_CTRL_USAGE OFF -to "zx_system:u_sys|sdram_ram:u_ram"
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to DRAM_ADDR[*]
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to DRAM_BA[*]
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to DRAM_RAS_N
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to DRAM_CAS_N
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to DRAM_WE_N
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to DRAM_LDQM
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to DRAM_UDQM
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to DRAM_DQ[*]
+set_instance_assignment -name FAST_OUTPUT_ENABLE_REGISTER ON -to DRAM_DQ[*]
+set_instance_assignment -name FAST_INPUT_REGISTER ON -to DRAM_DQ[*]
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to VGA_R
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to VGA_R_LOW
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to VGA_G
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to VGA_G_LOW
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to VGA_B
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to VGA_B_LOW
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to VGA_HSYNC
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to VGA_VSYNC
+
+# On-board
+set_location_assignment PIN_T2  -to CLOCK_50
+set_location_assignment PIN_W13 -to RESET_N
+set_location_assignment PIN_Y13 -to KEY1
+set_location_assignment PIN_E4  -to LEDR
+
+# SDRAM W9825G6KH
+set_location_assignment PIN_AB4 -to DRAM_WE_N
+set_location_assignment PIN_W7 -to DRAM_UDQM
+set_location_assignment PIN_AB3 -to DRAM_RAS_N
+set_location_assignment PIN_AA5 -to DRAM_LDQM
+set_location_assignment PIN_AA10 -to DRAM_DQ[0]
+set_location_assignment PIN_AB9 -to DRAM_DQ[1]
+set_location_assignment PIN_AA9 -to DRAM_DQ[2]
+set_location_assignment PIN_AB8 -to DRAM_DQ[3]
+set_location_assignment PIN_AA8 -to DRAM_DQ[4]
+set_location_assignment PIN_AB7 -to DRAM_DQ[5]
+set_location_assignment PIN_AA7 -to DRAM_DQ[6]
+set_location_assignment PIN_AB5 -to DRAM_DQ[7]
+set_location_assignment PIN_Y7 -to DRAM_DQ[8]
+set_location_assignment PIN_W8 -to DRAM_DQ[9]
+set_location_assignment PIN_Y8 -to DRAM_DQ[10]
+set_location_assignment PIN_V9 -to DRAM_DQ[11]
+set_location_assignment PIN_V10 -to DRAM_DQ[12]
+set_location_assignment PIN_Y10 -to DRAM_DQ[13]
+set_location_assignment PIN_W10 -to DRAM_DQ[14]
+set_location_assignment PIN_V11 -to DRAM_DQ[15]
+set_location_assignment PIN_AA3 -to DRAM_CS_N
+set_location_assignment PIN_Y6 -to DRAM_CLK
+set_location_assignment PIN_W6 -to DRAM_CKE
+set_location_assignment PIN_AA4 -to DRAM_CAS_N
+set_location_assignment PIN_Y1 -to DRAM_BA[0]
+set_location_assignment PIN_W2 -to DRAM_BA[1]
+set_location_assignment PIN_V2 -to DRAM_ADDR[0]
+set_location_assignment PIN_V1 -to DRAM_ADDR[1]
+set_location_assignment PIN_U2 -to DRAM_ADDR[2]
+set_location_assignment PIN_U1 -to DRAM_ADDR[3]
+set_location_assignment PIN_V3 -to DRAM_ADDR[4]
+set_location_assignment PIN_V4 -to DRAM_ADDR[5]
+set_location_assignment PIN_Y2 -to DRAM_ADDR[6]
+set_location_assignment PIN_AA1 -to DRAM_ADDR[7]
+set_location_assignment PIN_Y3 -to DRAM_ADDR[8]
+set_location_assignment PIN_V5 -to DRAM_ADDR[9]
+set_location_assignment PIN_W1 -to DRAM_ADDR[10]
+set_location_assignment PIN_Y4 -to DRAM_ADDR[11]
+set_location_assignment PIN_V6 -to DRAM_ADDR[12]
+
+# U8 <- adapter J2 (J2 pin k on U8 pin 65-k)
+set_location_assignment PIN_E22  -to VGA_R
+set_location_assignment PIN_D22  -to VGA_R_LOW
+set_location_assignment PIN_C22  -to VGA_G
+set_location_assignment PIN_B22  -to VGA_G_LOW
+set_location_assignment PIN_N20  -to VGA_B
+set_location_assignment PIN_M20  -to VGA_B_LOW
+set_location_assignment PIN_F22  -to VGA_HSYNC
+set_location_assignment PIN_H22  -to VGA_VSYNC
+set_location_assignment PIN_Y22  -to TAPE_IN
+set_location_assignment PIN_AA20 -to TURBO_N
+set_location_assignment PIN_AA19 -to KBD_A
+set_location_assignment PIN_AA18 -to KBD_B
+set_location_assignment PIN_AB17 -to GND_TIE[0]
+set_location_assignment PIN_AA17 -to GND_TIE[1]
+
+# U7 <- adapter J1 (wired)
+set_location_assignment PIN_J1 -to AUDIO_AY
+set_location_assignment PIN_J2 -to AUDIO_BEEPER
+set_location_assignment PIN_D2 -to SW_50_60
+set_location_assignment PIN_C1 -to JOY_UP_N
+set_location_assignment PIN_C2 -to JOY_DOWN_N
+set_location_assignment PIN_B1 -to JOY_LEFT_N
+set_location_assignment PIN_B2 -to JOY_RIGHT_N
+set_location_assignment PIN_B3 -to JOY_FIRE_N
+
+# Weak pull-ups on inputs that may be unconnected (adapter J1 not wired yet, keyboard RX/TX
+# direction unknown). Not on GND_TIE.
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to SW_50_60
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to TURBO_N
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to TAPE_IN
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to KBD_A
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to KBD_B
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to JOY_UP_N
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to JOY_DOWN_N
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to JOY_LEFT_N
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to JOY_RIGHT_N
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to JOY_FIRE_N
+
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to CLOCK_50
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to RESET_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to KEY1
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LEDR
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R_LOW
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_G
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_G_LOW
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_B
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_B_LOW
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_HSYNC
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_VSYNC
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to TAPE_IN
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to TURBO_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to KBD_A
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to KBD_B
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GND_TIE[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GND_TIE[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to AUDIO_AY
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to AUDIO_BEEPER
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SW_50_60
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to JOY_UP_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to JOY_DOWN_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to JOY_LEFT_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to JOY_RIGHT_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to JOY_FIRE_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_ADDR[*]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_BA[*]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_CAS_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_CKE
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_CLK
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_CS_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[*]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_LDQM
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_RAS_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_UDQM
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_WE_N
+
+set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
+set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
+set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
+set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
