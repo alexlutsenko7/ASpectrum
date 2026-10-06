@@ -1,0 +1,1 @@
+C:/Altera/questa_fse/win64/VisualizerRls/bin/viscom.exe -nolock -quiet -jmem_size 934320 work.tb_vga_test -quiet -auto_acc_if_foreign -work work -allow_unnamed -o _opt -id 1-6cf6da8aa098-6ac5415e-27c-4ac8

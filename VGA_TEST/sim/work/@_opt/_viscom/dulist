@@ -1,0 +1,6 @@
+1 7 vga_pll 4 fast 37 C:/work/My/AlteraZX/VGA_TEST/sim/work 0 0 0 0 28 0
+1 8 debounce 4 fast 37 C:/work/My/AlteraZX/VGA_TEST/sim/work 0 0 0 0 47 0
+1 10 vga_clkmux 4 fast 37 C:/work/My/AlteraZX/VGA_TEST/sim/work 0 0 0 0 29 0
+1 10 vga_timing 4 fast 37 C:/work/My/AlteraZX/VGA_TEST/sim/work 0 0 0 0 127 0
+1 8 VGA_TEST 4 fast 37 C:/work/My/AlteraZX/VGA_TEST/sim/work 0 0 131072 0 707 0
+1 11 tb_vga_test 4 fast 37 C:/work/My/AlteraZX/VGA_TEST/sim/work 0 0 131072 0 1182 0

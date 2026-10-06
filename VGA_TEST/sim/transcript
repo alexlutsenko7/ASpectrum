@@ -1,0 +1,38 @@
+# ** Note: (vsim-220) 'C:/Altera/questa_fse/win64/../modelsim.ini' is used as the ini file.
+# vsim -c -quiet tb_vga_test -do "run -all; quit -f" 
+# Start time: 14:43:42 on Oct 06,2026
+# ** Note: (vsim-3812) Design is being optimized...
+# ** Note: (vopt-220) 'C:/Altera/questa_fse/win64/../modelsim.ini' is used as the ini file.
+# //  Questa Altera Starter FPGA Edition-64
+# //  Version 2025.2 win64 May 31 2025
+# //
+# // Unpublished work. Copyright 2025 Siemens
+# //
+# // This material contains trade secrets or otherwise confidential information
+# // owned by Siemens Industry Software Inc. or its affiliates (collectively,
+# // "SISW"), or its licensors. Access to and use of this information is strictly
+# // limited as set forth in the Customer's applicable agreements with SISW.
+# //
+# // This material may not be copied, distributed, or otherwise disclosed outside
+# // of the Customer's facilities without the express written permission of SISW,
+# // and may not be used in any way not expressly authorized by SISW.
+# //
+# run -all
+# bars 640 px (RrGgBb:width): 111111:43 101010:43 111100:42 101000:43 001111:43 001010:42 001100:43 000000:43 001000:42 110011:43 100010:43 110000:42 100000:43 000011:43 000010:41 111111:1
+# bars 720 px (RrGgBb:width): 111111:48 101010:48 111100:48 101000:48 001111:48 001010:48 001100:48 000000:48 001000:48 110011:48 100010:48 110000:48 100000:48 000011:48 000010:47 111111:1
+# frame  1: 525 lines x 800 px, vsync 2 lines, pclk 25.000 MHz, 59.524 Hz
+# frame  2: 525 lines x 800 px, vsync 2 lines, pclk 25.000 MHz, 59.524 Hz
+# frame  3: 328 lines x 558 px, vsync 2 lines, pclk 26.999 MHz, 147.518 Hz  (mode change, not checked)
+# frame  4: 625 lines x 864 px, vsync 5 lines, pclk 26.999 MHz, 49.999 Hz
+# frame  5: 625 lines x 864 px, vsync 5 lines, pclk 26.999 MHz, 49.999 Hz
+# frame  6: 625 lines x 864 px, vsync 5 lines, pclk 26.999 MHz, 49.999 Hz
+# frame  7: 625 lines x 864 px, vsync 5 lines, pclk 26.999 MHz, 49.999 Hz
+# frame  8: 328 lines x 595 px, vsync 5 lines, pclk 25.000 MHz, 128.100 Hz  (mode change, not checked)
+# frame  9: 525 lines x 800 px, vsync 2 lines, pclk 25.000 MHz, 59.524 Hz
+# frame 10: 525 lines x 800 px, vsync 2 lines, pclk 25.000 MHz, 59.524 Hz
+# frame 11: 525 lines x 800 px, vsync 2 lines, pclk 25.000 MHz, 59.524 Hz
+# PASS (9 frames checked)
+# ** Note: $finish    : tb_vga_test.sv(108)
+#    Time: 184977380 ns  Iteration: 2  Instance: /tb_vga_test
+# End time: 14:45:07 on Oct 06,2026, Elapsed time: 0:01:25
+# Errors: 0, Warnings: 0
