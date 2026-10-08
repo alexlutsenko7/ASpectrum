@@ -123,3 +123,62 @@ Open (user's decision): how the adapter physically connects to the Cyclone IV bo
   loader's pulse-timing loop has no RAM accesses and runs from one SDRAM row. INT as in the reference: 50 Hz mode = from
   VGA vsync (real-time 50 Hz, also in turbo); 60 Hz mode = every 70000 CPU clocks (scales with turbo). Pulse = 32 CPU
   clocks. Implementation rule: count INT width and the 70000 period in CPU CEN pulses, not system clocks.
+- Prototype hardware fit (user, 2026-10-06; prototype only, not the final design): adapter J2 plugged into U8 with
+  J2 pin 1 on U8.64 (J2.2 cut), J1 outside the board and wired to U7. VGA/tape/turbo/keyboard on U8, joystick/audio/
+  50/60 on U7. AB17/AA17 are tied to GND by the adapter: never drive high. Pin tables in docs/BOARD_PINOUT.md.
+- VGA_TEST/ created (adapter bring-up): colour bars, 640x480 at 60 Hz (800x525) or 50 Hz (850x588, 50.02 Hz) on one
+  25 MHz pixel clock, switch S1 (U7.22). Built + simulated. Waiting on the user: hardware test on the monitor.
+- VGA_TEST first hardware try: "Input not supported" in both S1 positions. The LED showed 50 Hz all the time: S1 had no
+  effect (D2/U7.22 wiring to check), and 850x588 (29.4 kHz line) is likely below the monitor's range. Changed 50 Hz to
+  800x625 (31.25 kHz, 50.00 Hz), KEY1 now swaps 50/60. For the ZX: INT from vsync at 50.00 Hz (real 128: 50.02 Hz).
+- 800x625@50 was shown by the user's monitor as "800x600@50" (picture squeezed to the top); 640x480@60 works. A true
+  640x480@50 is not possible on analog VGA (the monitor picks the mode from H/V rate + line count). Agreed: 50 Hz =
+  720x576@50 (576p, 27 MHz); 60 Hz stays 640x480 (25 MHz); pixel clock switched with the global clock control block
+  (sequenced, video reset during the switch). For the ZX at 50 Hz: 512x384 screen + 104 px / 96 line borders.
+- VGA_TEST passed on hardware (2026-10-06): 640x480@60 normal; 576p (OSD "800x600@50") centred vertically, sharp.
+  Open: S1 (50/60) has no effect -> check the J1.5 -> U7.22 (D2) wire; then program VGA_TEST.jic as the safe flash image.
+- S1 had no effect because it was miswired (user). Kept unwired for now: 50/60 is chosen with KEY1 (SW2, Y13); weak
+  pull-up on D2 so the floating input reads a steady 50 Hz. Wire S1 (J1.5 -> U7.22) later; it overrides the pull-up.
+- ROMs extracted to roms/ (zx128.rom, diagrom_v159.rom; hashes match this plan).
+- ASpectrum/ created: the full ZX Spectrum 128K (steps 3b, 4, 5 and the U8/U7 pinout in one design; see ASpectrum/README.md).
+  Builds clean (4,563 LEs, timing met, fully constrained). Sim: loader copies the bit-reversed flash image correctly
+  (the .jic really stores user hex data bit-reversed -> loader auto-detect), 128K ROM boots (RAM test through all
+  pages, INT every 70908 T, turbo 27.4 MHz effective). Next: hardware bring-up (program ASpectrum.jic once).
+- ASpectrum works on hardware (2026-10-06, first try): 128K boots to the menu, user: "works just fine".
+  Not yet tested by the user: full keyboard, DiagROM, turbo loading, AY/beeper, joystick (J1 wiring), tape.
+- Final ASpectrum resources on EP4CE15: 4,563 LEs (30 %; T80 2,490, AY 486, SDRAM 428, keyboard 366, bus 334,
+  video 167, loader 126), 17/56 M9K, 2 PLLs. Fits EP4CE10 comfortably, EP4CE6 at ~73 %.
+- Smaller-board candidate (user, 2026-10-06): "Cyclone4 FPGA Core Board EP4CE6F17", 78x48 mm: 50 MHz clock,
+  16 Mbit SPI flash (2 MB -> ROMs stay at 0x100000; .cof device EPCS16), 128 Mbit SDRAM = W9812G6KH-6
+  (4 banks x 4096 rows x 512 cols x 16, A0-A11, CL2 to 133 MHz: drop-in for sdram_ram), 102 user I/O, one button.
+  Port plan: new .qsf (device + pins from the vendor demo/schematic), SDRAM A12 unconnected, reset = the button,
+  DiagROM select + 50/60 swap via keyboard hotkeys (proposed: F12 swap, hold F1 at reset = DiagROM) and/or S1;
+  check header bank voltage (3.3 V), re-check timing at 73 % fill, add the W9812G6KH datasheet to docs/vendor/.
+
+### 2026-10-08
+- Agreed: internal SD tape loader replaces the external MCU loader. PicoRV32 (not Nios: no vendor lock-in) at 112 MHz
+  from M9K, plays unmodified .tap/.tzx (no PC preprocessing), pulse FIFO counted in CPU CEN ticks (exact at 1x and 8x),
+  loader keys on the keyboard numpad (F-key fallback, optional separate LOADER button on a U7 pin opens the menu without a keyboard; no long/short-press dual use), OSD replaces the
+  LCD. Prototype SD adapter: Adafruit 5683 MicroSD BFF (bare socket; add caps, MISO pull-up). DivMMC/esxDOS rejected. ~1,700 LEs + ~20-29 M9K: fits EP4CE15/
+  EP4CE10, not the EP4CE6 candidate. Full design: docs/SD_TAPE_LOADER.md.
+- Hotkeys assigned: F12 browser, F9/F10/F11 navigate/play, F1 at start = DiagROM, F8 = 50/60, Ctrl+Alt+Del = reset;
+  KEY1 retired (user). Adafruit BFF: only TX (= CS via SJ2) used. BFF wired (user): MOSI AA13, MISO AA14, SCK AA15,
+  CS_N AA16 (U8.7/9/11/13), caps fitted.
+- SD tape loader implemented: PicoRV32 at 56 MHz (user left 56 vs 112 to us), firmware in ASpectrum/fw
+  (FAT16/32, TAP + TZX incl. loops/jumps/calls, OSD browser), pulse player with gapless command chaining and
+  T-state crediting, F1/F8/Ctrl+Alt+Del in RTL, KEY1 unused. PC tests (3 card layouts, every signal vs an
+  independent Python reference) and RTL sims pass. Loads games on hardware (user).
+- Same day, all working on hardware (user): F7 / keypad * Stop; browser 400 entries (32 KB RAM, RV32IMC);
+  saving = recording mode ([Save to this folder] + 8.3 name, every ROM-format block into one .tap until F12;
+  MIC recorder holds the Z80 while the firmware is busy); F6 = turbo / normal speed for loading and saving.
+  First save version (dialog after the header, end after 3 s) split header/data into two files because the ROM's
+  1 s inter-block pause (real-time 50 Hz INTs) is 8x longer in turbo T-states -> replaced by start/stop.
+  End-to-end sim: 128K ROM loads a BASIC program from the SD image (first attempt had too-short test pilots: the
+  ROM's LD-WAIT needs ~3.5 M T before the leader). Build: 8,379 LEs (54 %), 55/56 M9K, worst slack +0.47 ns.
+  Docs: KNOWN_ISSUES.md, ASpectrum_Keys.docx, ASpectrum_Architecture.docx (Letter; generators in docs/src).
+
+### Next session
+- Open items: docs/KNOWN_ISSUES.md (SD card once not recognised, keyboard once dead at power-up). Block RAM is
+  55/56: further block-RAM features would need the SDRAM (e.g. folder list there).
+- Still to test from v1: keyboard, AY/beeper + joystick (J1 wiring), external tape (TURBO_N).
+- EP4CE6F17 port deprioritised (user, 2026-10-08: too small once the SD loader is in). Possibly: floating bus.

@@ -2,7 +2,7 @@
 
 KiCad project in `QM_Atrix_adapter/`, originally made (Mar 2024) as a plug-on board for a QMTECH **Artix-7**
 core board (two 2x25 headers named JP2/JP3). It is **not** pin- or size-compatible with the QMTECH Cyclone IV
-board (two 2x32 headers U7/U8, see `BOARD_PINOUT.md`). How it will be connected is **not decided yet**.
+board (two 2x32 headers U7/U8, see `BOARD_PINOUT.md`). Prototype connection: J2 plugged into U8, J1 wired to U7 (see below).
 
 Netlists below were extracted with `kicad-cli` (schematic) and by parsing the `.kicad_pcb` pad nets (2026-10-06).
 
@@ -96,71 +96,42 @@ between schematic and PCB). The 7803 is fitted too. So for these two parts the r
 | HS / VS series 22 Ω | R12 / R13 | R13 / R14 |
 | DB9 shield (J4 pad 0) | no net | GND |
 
-## Connecting to the Cyclone IV board (not decided)
+## Connecting to the Cyclone IV board — prototype (decided 2026-10-06)
 
-For reference only: if hand-wired to U7 as proposed in `BOARD_PINOUT.md`, the adapter's nets map as follows:
+**Prototype only, not the final hardware.** The user's last schematic/PCB revision was lost; the KiCad files are an
+earlier one (which is why the 7803 and the Turbo pull-up are fitted on the board but missing from the PCB file).
 
-| Adapter | U7 pin (FPGA) | Proposed signal |
+As built by the user:
+- Adapter **J2 plugged straight into U8**, J2 pin 1 on U8 pin 64 (J2 pin k -> U8 pin 65-k). The analog VGA
+  lines get a short, rigid path and 5 V + GND come through the header (J2.1 -> VIN, J2.3/J2.4 -> GND 62/61).
+- **J2.2 cut** on the adapter (it would sit on VIN 5 V; on the real board it might reach the 3v3 rail).
+- One side of the adapter is aligned with U8; **J1 hangs outside the Cyclone board**, so it touches nothing there.
+  J1.1 still carries 5 V (same net as J2.1): keep loose wires and metal away. Support the overhanging side mechanically.
+- J1 signals (joystick, AY, beeper, 50/60) go to **U7 by wires**, plus one GND wire; J1 5 V and 3v3 are not wired.
+
+Full pin tables: `BOARD_PINOUT.md`, section "ZX Spectrum I/O assignment — prototype". Summary:
+
+| Adapter | Cyclone | Signal |
 |---|---|---|
-| GND | 1, 2 | GND |
-| 3v3 | — | **do not connect**: the adapter's 7803 makes 3v3 from 5v0 (check J1.2/J2.2 are isolated on the real board) |
-| 5v0 (J1.1/J2.1) | 63, 64 (VIN) | 5 V for the audio and keyboard modules |
-| RH, RL, GH, GL, BH, BL | 7, 8, 9, 10, 11, 12 (R1 R2 P1 P2 N1 N2) | VGA_R, VGA_R_LOW, VGA_G, VGA_G_LOW, VGA_B, VGA_B_LOW |
-| HS, VS | 13, 14 (M1, M2) | VGA_HSYNC, VGA_VSYNC |
-| AY, Beeper | 15, 16 (J1, J2) | AUDIO_AY, AUDIO_BEEPER |
-| Kb_in, Kb_out | 17, 18 (H1, H2) | KBD_RX, KBD_TX (direction to be confirmed on the module) |
-| Tape_in, Turbo | 19, 20 (F1, F2) | TAPE_IN, TURBO_N (active low, 680 Ω pull-up on the adapter) |
-| Vrf | 22 (D2) | SW_50_60 (S1 drives GND / 3v3 via 3k3: compatible) |
-| Up, Dwn, Lft, Rght, Btn | 23-27 (C1 C2 B1 B2 B3) | JOY_* |
-| Tape_out | — | not needed (never used) |
+| BL BH GL GH RL RH (J2.6-16) | U8 59 57 55 53 51 49 = M20 N20 B22 C22 D22 E22 | VGA_B_LOW VGA_B VGA_G_LOW VGA_G VGA_R_LOW VGA_R |
+| HS, VS (J2.18, J2.20) | U8 47, 45 = F22, H22 | VGA_HSYNC, VGA_VSYNC |
+| Tape_out, Tape_in, Turbo (J2.40-44) | U8 25, 23, 21 = W22, Y22, AA20 | unused (input), TAPE_IN, TURBO_N |
+| Kb_out, Kb_in (J2.46, J2.48) | U8 19, 17 = AA19, AA18 | keyboard UART (direction to confirm) |
+| GND (J2.49, J2.50) | U8 16, 15 = AB17, AA17 | FPGA I/O tied to GND: never drive high |
+| AY, Beeper (J1.17, J1.19) | U7 15, 16 = J1, J2 | AUDIO_AY, AUDIO_BEEPER |
+| Vrf (J1.5) | U7 22 = D2 | SW_50_60 |
+| Up Dwn Lft Rght Btn (J1.15 11 9 7 13) | U7 23-27 = C1 C2 B1 B2 B3 | JOY_* |
+| GND (J1.3) | U7 1 | ground wire |
 
-Not on the adapter but in the proposal:
-- **Reset**: on the Artix board the machine reset was the FPGA board's own reset button. Same approach here: the
-  Cyclone IV on-board KEY0 (W13) — U7.21 RESET_BTN_N is then not needed for the adapter.
-- **ROM select**: the adapter was built for a production machine and has no ROM select. It must be implemented
-  differently. **Agreed 2026-10-06**: on-board KEY1 (Y13) held during reset/power-up -> DiagROM, otherwise 128K ROM
-  (no extra hardware; optionally a USB-keyboard hotkey later). U7.28 ROM_SEL is dropped.
+How the fit was chosen: every alignment of J2 (2x25) on a 2x32 header was checked (row offset, both directions,
+both column parities). Only "J2 pin 1 at the VIN end" (U7 or U8) puts 5 V on VIN, GND on GND and all VGA lines on
+I/O. The alternative (J2 pin 1 at U7 pin 5) gives no power or ground through the header.
 
-## Plugging J2 directly into a Cyclone header (user's plan, 2026-10-06)
-
-Why the files don't match the board: the user's last schematic/PCB revision was lost; the KiCad files are an earlier
-one. The plan is to plug the adapter's **J2** (VGA + tape/turbo + keyboard) straight into a Cyclone 2x32 header, so
-the analog VGA lines get a short, rigid path. **J1** signals (joystick, AY, beeper, 50/60) go by wires.
-
-Every alignment of the 2x25 J2 on a 2x32 header was checked (row offset, both row directions, both column
-parities). Rule: adapter 5V must not reach GND or I/O, adapter GND must not reach 3V3/VIN, and all 8 VGA lines must
-land on I/O. Only two families pass:
-
-**A. Reversed (recommended): J2 pin 1 at the header's VIN end.** Works on U7 or U8. J2.1 5v0 -> VIN (adapter
-powered from the header), J2.3/J2.4 GND -> GND 61/62 (real ground at the VGA end). J2.49/J2.50 GND land on two
-I/O pins (leave them as inputs, never drive high). **J2.2 lands on VIN (5 V)**: must be isolated on the real board
-(the schematic leaves it open since the 7803 makes 3v3). **Check with a meter before plugging in**: J2.2 must not
-connect to the adapter's 3v3 rail. If it does, 5 V reaches the 3v3 pull-ups and from there the FPGA inputs.
-
-Which column parity applies depends on how the headers mate; either works. On U7:
-
-| Adapter | U7 pin / FPGA (parity 1) | U7 pin / FPGA (parity 2) |
-|---|---|---|
-| 5v0 J2.1 / J2.2 | 63 / 64 VIN | 64 / 63 VIN |
-| GND J2.3, J2.4 | 61, 62 GND | 62, 61 GND |
-| BL BH GL GH (J2.6-12) | 60 A20, 58 A19, 56 A18, 54 A17 | 59 B20, 57 B19, 55 B18, 53 B17 |
-| RL RH HS VS (J2.14-20) | 52 A16, 50 A15, 48 A14, 46 A13 | 51 B16, 49 B15, 47 B14, 45 B13 |
-| Tape_out, Tape_in, Turbo | 26 B2, 24 C2, 22 D2 | 25 B1, 23 C1, 21 E1 |
-| Kb_out, Kb_in | 20 F2, 18 H2 | 19 F1, 17 H1 |
-| GND J2.49, J2.50 | 15 J1, 16 J2 (I/O tied to GND) | 16 J2, 15 J1 |
-
-All VGA pins are in one I/O bank either way. On U8 the same alignment puts VGA on M19 N19 B21 C21 D21 E21 F21 H21 (parity 1)
-or M20 N20 B22 C22 D22 E22 F22 H22 (parity 2). That works too, but it takes the pins the QMTECH daughterboard uses for VGA.
-
-**B. Straight, U7 only: J2 pin 1 at U7 pin 5.** J2.1/J2.2 -> U7.5/6 (n.c.; verify they really are open), so
-**no power and no ground** through the header: adapter GND lands on FPGA I/O (U7.7/8, 53/54), which is a poor VGA
-return. That needs extra GND and 5 V wires. Not recommended.
-
-Still to check physically (user): where the adapter body and J1 end up relative to the Cyclone board and its
-components for the chosen orientation. Once the fit is chosen, the U7 assignment in `BOARD_PINOUT.md` (VGA on
-U7.7-14) must be redone to match.
+Not on the adapter:
+- **Reset**: on-board KEY0 (W13), as on the Artix board (its own reset button).
+- **ROM select**: on-board KEY1 (Y13) held during reset/power-up -> DiagROM, otherwise 128K ROM (agreed 2026-10-06).
 
 ## Open decisions (user)
-- Physical connection: J2 plugged straight into a Cyclone header for VGA (user, 2026-10-06), J1 by wires; orientation
-  (family A recommended) and U7 vs U8 to be fixed after a physical test fit.
+- ~~Physical connection~~ — decided for the prototype: J2 into U8 (pin 1 on U8.64, J2.2 cut), J1 wired to U7.
+- Keyboard UART direction (which of Kb_out/Kb_in is the module's TX): confirm on the module.
 - ~~ROM select method~~ — decided: KEY1 held at reset (see above).

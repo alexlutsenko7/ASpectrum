@@ -1,0 +1,186 @@
+const fs = require("fs");
+const {
+  Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType,
+  ShadingType, HeadingLevel, AlignmentType, LevelFormat, BorderStyle,
+} = require("docx");
+
+const W = 9360; // US Letter text width with 1" margins (DXA)
+const FONT = "Calibri";
+const border = { style: BorderStyle.SINGLE, size: 4, color: "A6A6A6" };
+const borders = { top: border, bottom: border, left: border, right: border };
+
+function runs(text, opts = {}) {
+  // **bold** segments
+  return text.split(/(\*\*[^*]+\*\*)/).filter(Boolean).map(t =>
+    t.startsWith("**") ? new TextRun({ text: t.slice(2, -2), bold: true, font: FONT, size: opts.size || 20 })
+                       : new TextRun({ text: t, font: FONT, size: opts.size || 20 }));
+}
+
+function cell(text, width, head = false) {
+  const lines = Array.isArray(text) ? text : [text];
+  return new TableCell({
+    width: { size: width, type: WidthType.DXA },
+    borders,
+    shading: head ? { type: ShadingType.CLEAR, color: "auto", fill: "1F3864" } : undefined,
+    margins: { top: 60, bottom: 60, left: 100, right: 100 },
+    children: lines.map(l => new Paragraph({
+      children: head ? [new TextRun({ text: l, bold: true, color: "FFFFFF", font: FONT, size: 20 })] : runs(l),
+    })),
+  });
+}
+
+function table(widths, header, rows) {
+  return new Table({
+    width: { size: W, type: WidthType.DXA },
+    columnWidths: widths,
+    rows: [
+      new TableRow({ tableHeader: true, children: header.map((h, i) => cell(h, widths[i], true)) }),
+      ...rows.map(r => new TableRow({ children: r.map((c, i) => cell(c, widths[i])) })),
+    ],
+  });
+}
+
+const h1 = t => new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 300, after: 120 }, children: [new TextRun({ text: t, font: FONT })] });
+const h2 = t => new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 240, after: 100 }, children: [new TextRun({ text: t, font: FONT })] });
+const p = t => new Paragraph({ spacing: { after: 100 }, children: runs(t, { size: 21 }) });
+const step = t => new Paragraph({ numbering: { reference: "steps", level: 0 }, spacing: { after: 60 }, children: runs(t, { size: 21 }) });
+const bullet = t => new Paragraph({ numbering: { reference: "bullets", level: 0 }, spacing: { after: 60 }, children: runs(t, { size: 21 }) });
+const gap = () => new Paragraph({ spacing: { after: 60 }, children: [] });
+
+// numbering instances: each procedure restarts at 1
+const procs = ["load", "multi", "rewind", "save", "diag", "reset"];
+const numbering = {
+  config: [
+    { reference: "bullets", levels: [{ level: 0, format: LevelFormat.BULLET, text: "•", alignment: AlignmentType.LEFT,
+      style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] },
+    ...procs.map(r => ({ reference: r, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: "%1.", alignment: AlignmentType.LEFT,
+      style: { paragraph: { indent: { left: 540, hanging: 300 } } } }] })),
+  ],
+};
+const stepOf = ref => t => new Paragraph({ numbering: { reference: ref, level: 0 }, spacing: { after: 60 }, children: runs(t, { size: 21 }) });
+
+const children = [
+  new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: "ASpectrum — extra keys", bold: true, size: 40, font: FONT, color: "1F3864" })] }),
+  new Paragraph({ spacing: { after: 240 }, children: [new TextRun({ text: "ZX Spectrum 128K on the QMTECH Cyclone IV board, with the SD card tape loader (build of 8 October 2026)", size: 21, font: FONT, color: "595959" })] }),
+
+  p("All keys below are on the USB keyboard unless a board button is named. Keys that the Spectrum itself uses (letters, digits, Enter, Space, Shift) work as on a real 128K and are listed at the end."),
+
+  h1("Machine keys"),
+  table([2234, 2816, 4310], ["Key", "What it does", "Notes"], [
+    ["**F1** (held while the Spectrum starts)", "Starts DiagROM (test ROM) instead of the 128K ROM",
+      ["Only read at the moment the Spectrum starts: at power-up, after KEY0, or after Ctrl+Alt+Del. Holding F1 later does nothing.",
+       "Keep holding F1 until the DiagROM screen appears. See \"Starting the test ROM\" below."]],
+    ["**F6**", "Switches tape loading and saving between turbo (default) and normal speed",
+      ["Shows \"Speed: normal\" or \"Speed: turbo\" on the bottom row for 2 seconds. Works at any time; a tape that is playing or a block being saved changes speed at once. Back to turbo after KEY0 or power-up."]],
+    ["**F8**", "Swaps the video between 50 Hz (720x576) and 60 Hz (640x480)",
+      ["Each press swaps. The choice survives resets; the S1 switch (when wired) sets the default at power-up."]],
+    ["**Ctrl + Alt + Del**", "Resets the Spectrum",
+      ["Like pressing reset on the machine: the ROMs are reloaded and the 128K menu comes back.",
+       "The SD tape loader is not reset: a tape that is playing keeps its place (pause it first with keypad 5 if you want it to stop)."]],
+    ["**KEY0** (board button W13)", "Resets everything, including the SD tape loader", ["The video mode is kept."]],
+    ["KEY1 (board button Y13)", "Not used", ["It used to select DiagROM and swap 50/60; that is now F1 and F8."]],
+  ]),
+
+  h1("SD tape loader keys"),
+  p("The loader shows a file browser over the Spectrum picture (white on blue). Every action has a numpad key and an F-key, so keyboards without a numpad work too. While the browser is open the Spectrum sees no keys at all."),
+  table([2816, 3272, 3272], ["Key", "Browser closed", "Browser open"], [
+    ["**F12**, keypad **/** or **NumLock**", "Opens the browser; while recording: stops recording", "Closes the browser"],
+    ["Keypad **8** / **2**, **F9** / **F10**, **Up** / **Down**", "(Up / Down go to the Spectrum as cursor keys)", "Moves the selection up / down (held: repeats)"],
+    ["Keypad **4** / **6**, **Left** / **Right**", "(Left / Right go to the Spectrum)", "One page up / down"],
+    ["**Enter**, keypad **Enter**", "(goes to the Spectrum)", "Loads the selected file, or opens the folder"],
+    ["**F11**", "Pauses / continues the tape", "Loads the selected file, or opens the folder"],
+    ["Keypad **5**", "Pauses / continues the tape", "Pauses / continues the tape"],
+    ["Keypad **-**", "Goes back one block on the tape", "Goes back one block on the tape"],
+    ["**F7**, keypad *", "Stops the tape: normal speed and normal EAR again, nothing shown on screen", "Stops the tape"],
+    ["**Esc**, **Backspace**", "(Esc = BREAK, Backspace = DELETE on the Spectrum)", "Goes up one folder; in the top folder closes the browser"],
+  ]),
+  gap(),
+  p("The browser stays on screen until you let go of the key that closed it, so the Spectrum never sees that Enter or Esc (Esc would be BREAK)."),
+
+  h2("Save name keys"),
+  p("After choosing [Save to this folder] in the browser:"),
+  table([2816, 6544], ["Key", "Action"], [
+    ["Letters, digits, **-**, **_**", "Type the name (up to 8 characters; .TAP is added)"],
+    ["**Backspace**", "Deletes the last character"],
+    ["**Enter**", "Starts recording"],
+    ["**Esc**", "Back to the browser"],
+  ]),
+  gap(),
+  p("While recording, **F12** (or **F7**) stops recording and closes the file; the browser cannot be opened then."),
+
+  h1("Usage cases"),
+
+  h2("Loading a game"),
+  stepOf("load")("Make the Spectrum wait for a tape: choose **Tape Loader** in the 128K menu, or type **LOAD \"\"** and press Enter."),
+  stepOf("load")("Press **F12**. The browser shows the folders and the .tap / .tzx files of the SD card."),
+  stepOf("load")("Pick the file (arrows, keypad 8/2) and press **Enter**. The browser closes and the tape starts."),
+  stepOf("load")("While the tape plays, the Spectrum runs at 28 MHz (8 times faster) and the board LED is on. At the end of the tape it goes back to normal speed by itself. Press **F6** before (or during) loading to load at the normal speed instead."),
+
+  h2("Multi-load games and \"stop the tape\" blocks"),
+  stepOf("multi")("Some TZX files stop the tape between parts. The bottom row then shows **Tape stopped (5=go on)** and the speed returns to normal."),
+  stepOf("multi")("When the game asks for the next part, press keypad **5** (or **F11**). Loading continues where it stopped."),
+
+  h2("A loading error, or starting a block again"),
+  stepOf("rewind")("Press keypad **5** to pause the tape. The bottom row shows **Paused, block N**."),
+  stepOf("rewind")("Press keypad **-** once for every block you want to go back."),
+  stepOf("rewind")("Make the Spectrum wait for the tape again (for example LOAD \"\"), then press keypad **5** to play from that block."),
+
+  h2("Saving programs"),
+  stepOf("save")("Press **F12**, go into the folder you want, and choose the first line **[Save to this folder]**."),
+  stepOf("save")("Type a name, or keep the suggested **SAVEnnnn**, and press **Enter**. The browser closes and recording starts; the bottom row shows **Rec NAME.TAP: 0 F12=stop**."),
+  stepOf("save")("Save on the Spectrum as often as you like, for example **SAVE \"game\"**, **SAVE \"pic\" SCREEN$** or **SAVE \"code\" CODE 32768,1000**. Every block goes into this one file. Blocks are saved at 8 times the speed; in between the Spectrum runs normally."),
+  stepOf("save")("Press **F12** to stop. The bottom row shows **Saved NAME.TAP (n blocks)**. If nothing was saved, the empty file is removed."),
+  p("To load it back: F12, choose the file, Enter (after LOAD \"\" as usual). Only the ROM's standard save format is recognised."),
+
+  h2("Starting the test ROM (DiagROM)"),
+  stepOf("diag")("Press and hold **F1**."),
+  stepOf("diag")("While holding F1: switch the board on, or press KEY0, or press **Ctrl + Alt + Del**."),
+  stepOf("diag")("Keep holding F1 until the DiagROM screen appears, then let go."),
+  stepOf("diag")("To get back to the normal 128K ROM, reset without holding F1 (Ctrl + Alt + Del or KEY0)."),
+  p("At power-up the Spectrum waits up to 1.5 seconds for the keyboard so that a held F1 is seen. If DiagROM still does not start, keep holding F1 and press Ctrl + Alt + Del: that always works."),
+
+  h2("Stopping a tape completely"),
+  p("Press **F7** (or keypad *) at any time. The tape stops, the Spectrum goes back to normal speed, the status row disappears and the tape position is forgotten. To play the file again, choose it in the browser (F12): it starts from the beginning. Pause (keypad 5) is different: it keeps the position and shows a status row."),
+
+  h2("Resetting"),
+  stepOf("reset")("**Ctrl + Alt + Del**: the Spectrum restarts; a tape that is playing is not touched."),
+  stepOf("reset")("**KEY0**: everything restarts, including the tape loader (the SD card is read again)."),
+
+  h1("Good to know"),
+  bullet("SD card: FAT32 or FAT16. exFAT does not work (most cards larger than 32 GB come as exFAT: format them as FAT32)."),
+  bullet("Folders work. The browser shows folders first, then files, sorted by name, up to 400 per folder; long names are shown up to 27 characters."),
+  bullet("Unmodified .tap and .tzx files are played; no conversion on the PC is needed."),
+  bullet("The external tape simulator on the adapter (TAPE_IN, TURBO_N) still works as before."),
+  bullet("If the browser says **No SD card, or not FAT16/FAT32**, insert the card and press Enter to try again."),
+
+  h1("Spectrum keys on the USB keyboard"),
+  table([3108, 6252], ["USB key", "Spectrum key"], [
+    ["Letters, digits, Enter, Space", "The same keys"],
+    ["Left Shift", "CAPS SHIFT"],
+    ["Right Shift or Ctrl", "SYMBOL SHIFT"],
+    ["Backspace", "DELETE (CAPS SHIFT + 0)"],
+    ["Arrow keys", "Cursor keys (CAPS SHIFT + 5 / 6 / 7 / 8)"],
+    ["Esc", "BREAK (CAPS SHIFT + SPACE)"],
+  ]),
+];
+
+const doc = new Document({
+  creator: "AlteraZX",
+  title: "ASpectrum — extra keys",
+  styles: {
+    default: { document: { run: { font: FONT, size: 21 } } },
+    paragraphStyles: [
+      { id: "Heading1", name: "Heading 1", basedOn: "Normal", next: "Normal", quickFormat: true,
+        run: { size: 30, bold: true, color: "1F3864", font: FONT }, paragraph: { outlineLevel: 0 } },
+      { id: "Heading2", name: "Heading 2", basedOn: "Normal", next: "Normal", quickFormat: true,
+        run: { size: 24, bold: true, color: "2F5496", font: FONT }, paragraph: { outlineLevel: 1 } },
+    ],
+  },
+  numbering,
+  sections: [{
+    properties: { page: { size: { width: 12240, height: 15840 }, margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } } },
+    children,
+  }],
+});
+
+Packer.toBuffer(doc).then(b => { fs.writeFileSync(process.argv[2], b); console.log("written", process.argv[2], b.length); });

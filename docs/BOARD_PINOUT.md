@@ -91,55 +91,97 @@ All user I/O banks are VCCIO = 3.3 V (LVTTL/LVCMOS). Cyclone IV I/O is **not 5 V
 Pin numbers 1/2, 61/62 GND and 63/64 VIN are as drawn; the exact pin-5/6 and power-row assignment should be
 checked with a meter before connecting an adapter.
 
-## ZX Spectrum I/O assignment (proposed 2026-10-05, all on header U7)
+## ZX Spectrum I/O assignment — prototype with the QM_Atrix adapter (2026-10-06)
 
-The user's existing adapter (built for another FPGA board, all 3.3 V; see `QM_ATRIX_ADAPTER.md`) will be wired to U7 by hand.
-Confirmed by the user 2026-10-05: two separate audio outputs (beeper and AY PWM); ROM select switch on pin 28.
+**Prototype only, not the final hardware.** The user's QM_Atrix adapter (see `QM_ATRIX_ADAPTER.md`) is plugged
+with its **J2** straight into **U8**: J2 pin 1 on U8 pin 64, so J2 pin k sits on U8 pin 65-k. Adapter J2.2 is
+cut (it would sit on VIN). J1 hangs outside the Cyclone board and its signals go to **U7** by wires.
+(The earlier all-on-U7 hand-wiring proposal of 2026-10-05 is superseded.)
 
-| U7 pin | FPGA pin | Signal | Dir | Notes |
-|---|---|---|---|---|
-| 1, 2 | — | GND | | ground for the adapter (VGA ground return) |
-| 3, 4 | — | 3V3 | | not used by the QM_Atrix adapter (it has its own 7803 from 5 V); do not tie to the adapter 3v3 rail |
-| 7 | R1 | VGA_R | out | red, high bit |
-| 8 | R2 | VGA_R_LOW | out | red, low (brightness) bit |
-| 9 | P1 | VGA_G | out | |
-| 10 | P2 | VGA_G_LOW | out | |
-| 11 | N1 | VGA_B | out | |
-| 12 | N2 | VGA_B_LOW | out | |
-| 13 | M1 | VGA_HSYNC | out | |
-| 14 | M2 | VGA_VSYNC | out | |
-| 15 | J1 | AUDIO_AY | out | AY-3-8910/12 sound, PWM (needs RC low-pass on the adapter) |
-| 16 | J2 | AUDIO_BEEPER | out | ZX beeper (port FE bit 4), plain logic level |
-| 17 | H1 | KBD_RX | in | from the keyboard adapter's TX (115200 baud) |
-| 18 | H2 | KBD_TX | out | to the keyboard adapter's RX |
-| 19 | F1 | TAPE_IN | in | tape simulator data |
-| 20 | F2 | TURBO_N | in | active low: low = 28 MHz turbo, released/high = normal. Driven by the SD card loader (tape simulator) when connected; 680 Ω pull-up on the adapter (plus FPGA weak pull-up) keeps turbo off when nothing is connected |
-| 21 | E1 | RESET_BTN_N | in | Z80/machine reset button to GND, internal pull-up. Not used with the QM_Atrix adapter: reset = on-board KEY0 (W13) |
-| 22 | D2 | SW_50_60 | in | 50/60 Hz switch to GND, internal pull-up |
-| 23 | C1 | JOY_UP_N | in | Kempston, to GND when pressed, internal pull-up |
-| 24 | C2 | JOY_DOWN_N | in | |
-| 25 | B1 | JOY_LEFT_N | in | |
-| 26 | B2 | JOY_RIGHT_N | in | |
-| 27 | B3 | JOY_FIRE_N | in | |
-| 28 | A3 | ROM_SEL | in | ROM select switch, read at reset: open (pull-up) = 128K ROM, to GND = DiagROM (polarity can be swapped). **Dropped 2026-10-06**: ROM select = on-board KEY1 (Y13) held during reset/power-up -> DiagROM; U7.28 free |
-| 29-60 | B4... | — | | free |
+### U8 — adapter J2 plugged in
 
-Why these pins:
-- One header, one contiguous block (U7 pins 7-28): a single ribbon/IDC cable; GND (1-2) and 3V3 (3-4) on the
-  same connector, next to the VGA group.
-- VGA outputs together in one I/O bank (left side), at the end nearest the ground pins.
-- None of them are special: avoids the clock-input-only pins (U8 5/6 = AA11/AB11), the configuration-related
-  pins on U8 (K22 nCEO, K21 CLKUSR, L21 CRC_ERROR, L22 INIT_DONE, N21/N22 DEV_CLRN/DEV_OE), and the pins the QMTECH
-  daughterboard uses for VGA (U8 B21-N19), in case that board is ever used.
-- B3/A3 (bank 8) are dual-purpose configuration data pins in passive modes only; in our AS mode they are normal I/O.
-- U8 stays completely free for future expansion.
+| U8 pin | FPGA pin | Bank | Adapter | Signal | Dir | Notes |
+|---|---|---|---|---|---|---|
+| 64 | — | | J2.1 5v0 | VIN 5 V | power | feeds the adapter: 7803 (3v3 rail, pull-ups), keyboard module, audio amp module |
+| 63 | — | | J2.2 (cut) | VIN | | pin removed on the adapter |
+| 61, 62 | — | | J2.4, J2.3 GND | GND | | VGA ground return |
+| 59 | M20 | 5 | BL | VGA_B_LOW | out | |
+| 57 | N20 | 5 | BH | VGA_B | out | |
+| 55 | B22 | 6 | GL | VGA_G_LOW | out | |
+| 53 | C22 | 6 | GH | VGA_G | out | |
+| 51 | D22 | 6 | RL | VGA_R_LOW | out | |
+| 49 | E22 | 6 | RH | VGA_R | out | |
+| 47 | F22 | 6 | HS | VGA_HSYNC | out | 22 Ω + 6p8 on the adapter |
+| 45 | H22 | 6 | VS | VGA_VSYNC | out | 22 Ω + 6p8 on the adapter |
+| 25 | W22 | 5 | Tape_out | — | in | never used: leave as input |
+| 23 | Y22 | 5 | Tape_in | TAPE_IN | in | tape simulator / SD card loader data |
+| 21 | AA20 | 4 | Turbo | TURBO_N | in | active low: low = 28 MHz turbo; 680 Ω pull-up on the adapter keeps it off when no loader is connected |
+| 19 | AA19 | 4 | Kb_out (J5.2) | KBD_TX ? | out? | keyboard module UART, 3.3 V. **Direction to confirm** on the module |
+| 17 | AA18 | 4 | Kb_in (J5.3) | KBD_RX ? | in? | 115200 baud. **Direction to confirm** |
+| 16 | AB17 | 4 | J2.49 GND | GND_TIE | **never drive high** | FPGA I/O hard-wired to GND: set as output driving ground (extra ground return) or input |
+| 15 | AA17 | 4 | J2.50 GND | GND_TIE | **never drive high** | same |
+
+All other U8 pins under J2 (17-60 not listed above) sit on unconnected adapter pins, including the
+configuration-related ones (pins 35-42: N22/N21 DEV_OE/DEV_CLRn, L22/L21, K22/K21): leave unused, keep
+DEV_CLRn/DEV_OE options off. U8 pins 1-14 (incl. the clock-only inputs on 5/6) are not covered by the adapter.
+VGA spans banks 5 and 6, both VCCIO 3.3 V: no problem. This uses the QMTECH daughterboard's VGA area, so that
+board cannot be used at the same time (it couldn't anyway).
+
+### U7 — wired from adapter J1
+
+The adapter keeps its own pull-ups (3k3 to its 3v3 rail) and filters. Adapter ground is already common through
+J2/U8; add one GND wire in the bundle (J1.3 -> U7.1) to keep the loop area small. Do **not** wire J1.1 (5 V) or
+J1.2 (3v3).
+
+| U7 pin | FPGA pin | Adapter J1 | Signal | Dir | Notes |
+|---|---|---|---|---|---|
+| 1 | — | J1.3 GND | GND | | ground wire along the bundle |
+| 15 | J1 | J1.17 AY | AUDIO_AY | out | PWM; 68 Ω + 100 nF low-pass on the adapter |
+| 16 | J2 | J1.19 Beeper | AUDIO_BEEPER | out | port FE bit 4 |
+| 22 | D2 | J1.5 Vrf | SW_50_60 | in | S1: GND or 3v3 via 3k3 |
+| 23 | C1 | J1.15 Up | JOY_UP_N | in | 3k3 pull-up on the adapter; active low |
+| 24 | C2 | J1.11 Dwn | JOY_DOWN_N | in | |
+| 25 | B1 | J1.9 Lft | JOY_LEFT_N | in | |
+| 26 | B2 | J1.7 Rght | JOY_RIGHT_N | in | also DB9 pin 7 (harmless, plain joystick only) |
+| 27 | B3 | J1.13 Btn | JOY_FIRE_N | in | |
+
+These are the same U7 pins as in the 2026-10-05 proposal, so nothing moves for these signals. U7 7-14, 17-21 and
+28-60 are now free.
+
+### U8 top — SD card (Adafruit 5683 MicroSD BFF), wired by the user 2026-10-08
+
+BFF jumpers unmodified (CS = TX via SJ2). SCK/MOSI/MISO on 5 mm pins, CS by a 25 mm wire. 10 uF + 100 nF across
+3V3/GND at the BFF. Other BFF pins (RX, A0-A3, SDA, SCL, 5V) unconnected. U8.1-14 are above the adapter's J2
+(U8.15-64). See docs/SD_TAPE_LOADER.md.
+
+| U8 pin | FPGA pin | BFF pin | Signal | Dir | Notes |
+|---|---|---|---|---|---|
+| 1/2 | — | JP3.6 GND | GND | | |
+| 3/4 | — | JP3.5 3.3V | 3V3 | power | core board 3.3 V |
+| 7 | AA13 | JP3.4 MOSI | SD_MOSI | out | |
+| 9 | AA14 | JP3.3 MISO | SD_MISO | in | FPGA weak pull-up ON (BFF has none) |
+| 11 | AA15 | JP3.2 SCK | SD_SCK | out | <= 400 kHz init, then 14 MHz |
+| 13 | AA16 | JP1.7 TX | SD_CS_N | out | idle high; weak pull-up ON so the card stays deselected before the loader runs |
+
+U8.5/6 (AA11/AB11) are CLK15/CLK14 dedicated clock inputs: input-only, never use them for outputs.
+
+### On-board
+- Machine reset = KEY0 (W13). ROM select = KEY1 (Y13) held during reset/power-up -> DiagROM.
+  Since 2026-10-08 (SD tape loader build): DiagROM = F1 held at CPU start, 50/60 = F8, KEY1 unused (v1 used KEY1).
+
+### Rules for every bitstream loaded on this board while the adapter is attached
+- AB17/AA17 are tied to GND: never drive them high. Unused pins must be plain inputs (Quartus "Reserve all unused
+  pins: As input tri-stated", which is what DDR_TEST uses).
+- Know what is in the configuration flash: a demo image that drives header pins could fight the adapter
+  (GND ties, keyboard TX, Turbo pull-up). Program a safe image or erase the flash before powering up with the adapter.
+- Mechanical: the adapter hangs from U8 only; support the J1 side (spacer) so cable strain does not lever on U8.
 
 Electrical notes:
-- All inputs get the FPGA's internal weak pull-up (~25 kOhm, `WEAK_PULL_UP_RESISTOR ON` in the .qsf). Buttons,
-  switches and joystick lines just switch to GND. For a long joystick cable, an external 4.7-10 kOhm pull-up and a
+- Inputs can get the FPGA's internal weak pull-up (~25 kOhm, `WEAK_PULL_UP_RESISTOR ON` in the .qsf); with the
+  QM_Atrix adapter the joystick, 50/60 and Turbo lines already have pull-ups on the adapter. For a long joystick cable, an external 4.7-10 kOhm pull-up and a
   100-330 Ohm series resistor per line make the input more robust (noise, ESD).
 - Inputs are synchronised (2 flip-flops) and the buttons/switches debounced in the FPGA.
 - During FPGA configuration all user pins are inputs with weak pull-ups: VGA/audio outputs float high for
   ~0.3 s at power-up. Harmless for a resistor DAC and an RC filter.
-- **Check the U7 pin numbering against the board with a meter** before connecting (it was read from the
-  schematic image): e.g. confirm pins 1/2 = GND and 3/4 = 3.3 V.
+- **Check the U7/U8 pin numbering against the board with a meter** before connecting (it was read from the
+  schematic image): e.g. confirm pins 1/2 = GND, 3/4 = 3.3 V, 61/62 = GND, 63/64 = VIN.
