@@ -20,11 +20,12 @@
 //   lkeys (1 = held, read by the tape loader CPU, fw/hw.h K_*):
 //     0 F12 / keypad / / NumLock   1 keypad 8 / F9 / Up      2 keypad 2 / F10 / Down
 //     3 keypad 4 / Left            4 keypad 6 / Right        5 keypad Enter / Enter
-//     6 F11   7 keypad 5   8 keypad -   9 Esc / Backspace   10 F7 / keypad *
+//     6 F11   7 keypad 5   8 keypad -   9 Esc / Backspace   10 F7 / keypad *   11 F6
 //   f1      F1 held (DiagROM when the CPU starts)
 //   f8_tgl  toggles on every F8 press (50/60 Hz video)
 //   cad     Ctrl + Alt + Del held (machine reset)
 //   seen    a complete packet has arrived since power-up
+//   raw     {modifiers, key 1, key 2, key 3} of the last packet (text input in the tape loader)
 //   block   (asynchronous) the OSD browser is open: all Spectrum keys released
 // Reset by power-on only, so F1 is still known after a KEY0 / Ctrl+Alt+Del reset.
 //=============================================================================
@@ -39,11 +40,12 @@ module zx_keyboard #(
     input  wire        rx,              // asynchronous
     input  wire        block,           // asynchronous: release all Spectrum keys
     output reg  [39:0] rows,
-    output reg  [10:0] lkeys,
+    output reg  [11:0] lkeys,
     output reg         f1,
     output reg         f8_tgl,
     output reg         cad,
-    output reg         seen
+    output reg         seen,
+    output reg  [31:0] raw
 );
 
 //-----------------------------------------------------------------------------
@@ -163,12 +165,13 @@ always @(posedge clk or negedge rst_n)
         k2      <= 8'd0;
         k3      <= 8'd0;
         zx_rows <= {40{1'b1}};
-        lkeys   <= 11'd0;
+        lkeys   <= 12'd0;
         f1      <= 1'b0;
         f8_tgl  <= 1'b0;
         f8_held <= 1'b0;
         cad     <= 1'b0;
         seen    <= 1'b0;
+        raw     <= 32'd0;
     end else if (byte_ok) begin
         if (rx_byte == 8'h57 || rx_byte == 8'hAB || rx_byte == 8'h82 || rx_byte == 8'hA3)
             idx <= 4'd0;
@@ -182,7 +185,8 @@ always @(posedge clk or negedge rst_n)
                     zx_rows <= ~(one_key(k1) | one_key(k2) | one_key(k3) |
                                  {39'd0, mods[1]} |                              // Left Shift  -> CAPS (bit 0)
                                  ({39'd0, mods[5] | mods[0] | mods[4]} << 36));  // RShift/Ctrl -> SYM (bit 36)
-                    lkeys <= {has(8'h40) | has(8'h55),                  // 10 F7 / keypad *
+                    lkeys <= {has(8'h3F),                               // 11 F6
+                              has(8'h40) | has(8'h55),                  // 10 F7 / keypad *
                               has(8'h29) | has(8'h2A),                  // 9 Esc / Backspace
                               has(8'h56),                               // 8 keypad -
                               has(8'h5D),                               // 7 keypad 5
@@ -198,6 +202,7 @@ always @(posedge clk or negedge rst_n)
                     if (has(8'h41) && !f8_held) f8_tgl <= !f8_tgl;
                     cad     <= has(8'h4C) && (mods[0] | mods[4]) && (mods[2] | mods[6]);
                     seen    <= 1'b1;
+                    raw     <= {mods, k1, k2, k3};
                 end
                 default: ;
             endcase

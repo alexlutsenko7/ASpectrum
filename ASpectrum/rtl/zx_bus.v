@@ -26,7 +26,7 @@
 //   CPU 0000-3FFF ROM (writes ignored), 4000 page 5, 8000 page 2, C000 7FFD[2:0]
 //
 // I/O (partial decoding as on the real 128):
-//   write A0=0          port FE: border [2:0], MIC [3], beeper [4]
+//   write A0=0          port FE: border [2:0], MIC [3] (to the tape loader's recorder), beeper [4]
 //   write A15=0, A1=0   port 7FFD: RAM page [2:0], screen [3], ROM [4], lock [5]
 //   write A15=1 A14=1 A1=0  AY register select (FFFD); A15=1 A14=0 A1=0  AY data (BFFD)
 //   read  A0=0          keyboard (A8-A15 select rows), EAR on bit 6, bits 5/7 = 1
@@ -62,6 +62,8 @@ module zx_bus #(
     input  wire        ltape_on,        // SD tape loader drives EAR (56 MHz domain)
     input  wire        ltape_lvl,
     output reg         cen_tgl,         // toggles on every CPU T-state (for the tape loader)
+    input  wire        hold,            // tape loader: pause the CPU (56 MHz domain); T-states stop
+    output reg         mic,             // port FE bit 3
 
     // SDRAM port (sdram_ram protocol: req pulse, hold until ack)
     output reg         sd_req,
@@ -94,8 +96,9 @@ module zx_bus #(
 // Synchronisers
 //-----------------------------------------------------------------------------
 reg [2:0] turbo_s, vid50_s, vsync_s, tape_s, diag_s;
-reg [1:0] lon_s, llvl_s;
+reg [1:0] lon_s, llvl_s, hold_s;
 always @(posedge clk) begin
+    hold_s  <= {hold_s[0], hold};
     lon_s   <= {lon_s[0],  ltape_on};
     llvl_s  <= {llvl_s[0], ltape_lvl};
     turbo_s <= {turbo_s[1:0], turbo};
@@ -152,7 +155,7 @@ reg  [1:0]  since;                      // clocks since the last cen (0 = the cl
 wire [32:0] dds_next = {1'b0, dds} + {1'b0, (turbo_s[2] ? INC_TURBO : INC_NORMAL)};
 wire        stall;
 
-assign cen = (tick | owed) & (since == 2'd3) & !stall & cpu_rst_n;
+assign cen = (tick | owed) & (since == 2'd3) & !stall & !hold_s[1] & cpu_rst_n;
 
 always @(posedge clk or negedge cpu_rst_n)
     if (!cpu_rst_n) begin
@@ -340,6 +343,7 @@ always @(posedge clk or negedge cpu_rst_n)
     if (!cpu_rst_n) begin
         border      <= 3'd7;
         beeper      <= 1'b0;
+        mic         <= 1'b0;
         p7ffd       <= 8'd0;
         ay_bdir     <= 1'b0;
         ay_bc1      <= 1'b0;
@@ -353,6 +357,7 @@ always @(posedge clk or negedge cpu_rst_n)
         if (t2_3rd && smp_wr2 && smp_io2) begin
             if (!a_lat[0]) begin
                 border <= smp_do[2:0];
+                mic    <= smp_do[3];
                 beeper <= smp_do[4];
             end
             if (!a_lat[15] && !a_lat[1] && !p7ffd[5])

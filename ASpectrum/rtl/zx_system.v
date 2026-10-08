@@ -142,8 +142,9 @@ rom_loader #(.DIV(FLASH_DIV)) u_loader (
 // Keyboard (power-on reset only), AY
 //-----------------------------------------------------------------------------
 wire [39:0] kb_rows;
-wire [10:0] lkeys;
+wire [11:0] lkeys;
 wire        kb_f1, kb_seen;
+wire [31:0] kb_raw;
 wire        l_osd_on, l_osd_full;
 
 zx_keyboard #(.CLK_HZ(CLK_MHZ * 1000000)) u_kbd (
@@ -156,7 +157,8 @@ zx_keyboard #(.CLK_HZ(CLK_MHZ * 1000000)) u_kbd (
     .f1     (kb_f1),
     .f8_tgl (kbd_f8_tgl),
     .cad    (kbd_cad),
-    .seen   (kb_seen)
+    .seen   (kb_seen),
+    .raw    (kb_raw)
 );
 
 // power-up: wait for the keyboard (first packet) or KBD_WAIT_MS before the CPU starts
@@ -216,7 +218,7 @@ sd_dac #(.W(10)) u_dac (
 // CPU, bus, ports
 //-----------------------------------------------------------------------------
 wire        sh_we, sh_page7, screen7, beeper, diag_rom, cpu_running, cen_tgl;
-wire        l_tape_on, l_tape_lvl, l_turbo;
+wire        l_tape_on, l_tape_lvl, l_turbo, l_hold, mic;
 wire [12:0] sh_addr;
 wire [7:0]  sh_data;
 wire [2:0]  border;
@@ -235,6 +237,8 @@ zx_bus u_bus (
     .ltape_on    (l_tape_on),
     .ltape_lvl   (l_tape_lvl),
     .cen_tgl     (cen_tgl),
+    .hold        (l_hold),
+    .mic         (mic),
     .sd_req      (bus_req),
     .sd_we       (bus_we),
     .sd_addr     (bus_addr),
@@ -269,7 +273,10 @@ tape_loader #(.FW0(FW0), .FW1(FW1), .FW2(FW2), .FW3(FW3)) u_tape (
     .clk        (clk56),
     .rst_n      (rst56_n),
     .keys       (lkeys),
+    .keyraw     (kb_raw),
     .cen_tgl    (cen_tgl),
+    .mic        (mic),
+    .hold       (l_hold),
     .sd_cs_n    (sdc_cs_n),
     .sd_sck     (sdc_sck),
     .sd_mosi    (sdc_mosi),

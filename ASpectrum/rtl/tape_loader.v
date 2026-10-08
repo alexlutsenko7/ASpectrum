@@ -6,7 +6,8 @@
 //   keys, cen_tgl            112 -> 56: levels / a toggle, each value held >= 2 clocks here
 //   tape_on/lvl/turbo, osd_* 56 -> 112 / pixel clock: levels, synchronised by the receiver
 //
-// CPU: PicoRV32 (rtl/picorv32, unmodified), RV32I, no IRQ/counters/MUL/DIV.
+// CPU: PicoRV32 (rtl/picorv32, unmodified), RV32IMC (compressed code: the firmware
+// fits 32 KB with 400 folder entries), no IRQ/counters.
 // Memory map:
 //   0x0000_0000  RAM, RAM_WORDS x 32 bit (code, data, stack), 4 byte lanes loaded
 //                from FW0..FW3 at configuration (fw/build.sh)
@@ -19,7 +20,17 @@
 //     14 OSD       W: [0] on, [1] full screen                    R: same
 //     18 TIMER     R: 56 MHz counter
 //     1C MARKER    R: last CMD_MARK argument executed by the player
+//     20 REC       R: recorder event: [31] pending, [30] gap (no MIC edge for GAP_T),
+//                     [29] edges lost, [23:0] T-states since the previous edge; reading clears it
+//     24 RECCTL    W: [0] armed (hold the Spectrum while an event is unread), [1] hold the Spectrum
+//                  R: T-states since the last MIC edge (saturating)
+//     28 KEYRAW    R: last keyboard report {modifiers, key 1, key 2, key 3}
 //   0x2000_0000  OSD text (32 x 24 bytes, write only, byte stores)
+//
+// Recorder (saving): MIC (port FE bit 3) edges, timed in T-states like the
+// player. While armed, an unread event holds the Spectrum CPU (hold), so no
+// edge is lost however long the firmware takes (SD writes, the save dialog);
+// holding stops the T-states too, so the recorded timing is unaffected.
 // Each access takes 2 clocks (registered RAM / register read).
 //
 // SPI (mode 0): SCK = 56 MHz / (2 * (div + 1)); MOSI changes after the falling
@@ -40,7 +51,8 @@
 `default_nettype none
 
 module tape_loader #(
-    parameter integer RAM_WORDS = 6144,                 // 24 KB, as fw/build.sh
+    parameter integer RAM_WORDS = 8192,                 // 32 KB, as fw/build.sh
+    parameter integer GAP_T     = 8000,                 // T-states without a MIC edge = end of a block
     parameter         FW0 = "fw/build/fw0.hex",
     parameter         FW1 = "fw/build/fw1.hex",
     parameter         FW2 = "fw/build/fw2.hex",
@@ -49,8 +61,11 @@ module tape_loader #(
     input  wire        clk,             // 56 MHz
     input  wire        rst_n,           // synchronous to clk
 
-    input  wire [10:0] keys,            // loader keys (system clock domain)
+    input  wire [11:0] keys,            // loader keys (system clock domain)
+    input  wire [31:0] keyraw,          // last keyboard report (system clock domain)
     input  wire        cen_tgl,         // toggles on every CPU T-state (system clock domain)
+    input  wire        mic,             // port FE bit 3 (system clock domain)
+    output wire        hold,            // pause the Spectrum CPU
 
     output wire        sd_cs_n,
     output reg         sd_sck,
@@ -89,13 +104,13 @@ picorv32 #(
     .BARREL_SHIFTER       (0),
     .TWO_CYCLE_COMPARE    (0),
     .TWO_CYCLE_ALU        (0),
-    .COMPRESSED_ISA       (0),
+    .COMPRESSED_ISA       (1),
     .CATCH_MISALIGN       (0),
     .CATCH_ILLINSN        (0),
     .ENABLE_PCPI          (0),
-    .ENABLE_MUL           (0),
+    .ENABLE_MUL           (1),
     .ENABLE_FAST_MUL      (0),
-    .ENABLE_DIV           (0),
+    .ENABLE_DIV           (1),
     .ENABLE_IRQ           (0),
     .ENABLE_TRACE         (0),
     .REGS_INIT_ZERO       (0),
@@ -137,7 +152,7 @@ wire          sel_io  = mem_addr[31:28] == 4'h1;
 wire          sel_osd = mem_addr[31:28] == 4'h2;
 wire          wr      = access && (mem_wstrb != 4'd0);
 wire [AW-1:0] wa      = mem_addr[AW+1:2];
-wire [2:0]    reg_a   = mem_addr[4:2];
+wire [3:0]    reg_a   = mem_addr[5:2];
 
 //-----------------------------------------------------------------------------
 // RAM: one 8-bit block RAM per byte lane (portable byte enables)
@@ -171,11 +186,14 @@ end
 //-----------------------------------------------------------------------------
 // Inputs from the system clock domain
 //-----------------------------------------------------------------------------
-reg [10:0] keys_s1, keys_s;
+reg [11:0] keys_s1, keys_s;
+reg [31:0] raw_s1, raw_s;
 reg [2:0] cen_s;
 always @(posedge clk) begin
     keys_s1 <= keys;
     keys_s  <= keys_s1;
+    raw_s1  <= keyraw;
+    raw_s   <= raw_s1;
     cen_s   <= {cen_s[1:0], cen_tgl};
 end
 wire tick = cen_s[2] ^ cen_s[1];
@@ -202,11 +220,11 @@ always @(posedge clk or negedge rst_n)
         spi_cs   <= 1'b0;
         sd_sck   <= 1'b0;
     end else begin
-        if (wr && sel_io && reg_a == 3'd1) begin
+        if (wr && sel_io && reg_a == 4'd1) begin
             spi_cs  <= mem_wdata[0];
             spi_div <= mem_wdata[15:8];
         end
-        if (wr && sel_io && reg_a == 3'd0) begin
+        if (wr && sel_io && reg_a == 4'd0) begin
             spi_sh   <= mem_wdata[7:0];
             spi_busy <= 1'b1;
             spi_bit  <= 3'd7;
@@ -239,7 +257,7 @@ reg  [9:0]  used;
 reg         loading, nxt_valid, flush;
 reg  [31:0] nxt;
 wire        consume;                                    // the player takes nxt this clock
-wire        push  = wr && sel_io && reg_a == 3'd3 && used != 10'd512;
+wire        push  = wr && sel_io && reg_a == 4'd3 && used != 10'd512;
 wire        fetch = !loading && (!nxt_valid || consume) && used != 10'd0;
 
 always @(posedge clk) begin
@@ -423,6 +441,63 @@ always @(posedge clk or negedge rst_n)
     end
 
 //-----------------------------------------------------------------------------
+// Recorder: MIC edges in T-states, one event at a time, Spectrum held while unread
+//-----------------------------------------------------------------------------
+reg  [1:0]  mic_s;
+reg         mic_p, rec_pend, rec_gap, rec_ovf, gap_sent, rec_armed, rec_hold;
+reg  [23:0] rec_delta;
+reg  [31:0] rec_since;
+wire        rd_rec   = access && !wr && sel_io && reg_a == 4'd8;
+wire        mic_edge = mic_s[1] != mic_p;
+
+assign hold = (rec_armed && rec_pend) || rec_hold;
+
+always @(posedge clk or negedge rst_n)
+    if (!rst_n) begin
+        mic_s     <= 2'b00;
+        mic_p     <= 1'b0;
+        rec_pend  <= 1'b0;
+        rec_gap   <= 1'b0;
+        rec_ovf   <= 1'b0;
+        gap_sent  <= 1'b1;
+        rec_delta <= 24'd0;
+        rec_since <= 32'd0;
+        rec_armed <= 1'b0;
+        rec_hold  <= 1'b0;
+    end else begin
+        mic_s <= {mic_s[0], mic};
+        mic_p <= mic_s[1];
+        if (wr && sel_io && reg_a == 4'd9) begin
+            rec_armed <= mem_wdata[0];
+            rec_hold  <= mem_wdata[1];
+        end
+        if (rd_rec) begin
+            rec_pend <= 1'b0;
+            rec_ovf  <= 1'b0;
+        end
+        if (mic_edge) begin
+            if (rec_pend && !rd_rec)
+                rec_ovf <= 1'b1;                                // previous edge not read yet (not armed)
+            else begin
+                rec_pend  <= 1'b1;
+                rec_gap   <= 1'b0;
+                rec_delta <= rec_since > 32'h00FFFFFF ? 24'hFFFFFF : rec_since[23:0];
+            end
+            rec_since <= 32'd0;
+            gap_sent  <= 1'b0;
+        end else begin
+            if (tick && rec_since != 32'hFFFFFFFF)
+                rec_since <= rec_since + 32'd1;
+            if (rec_since >= GAP_T && !gap_sent && (!rec_pend || rd_rec)) begin
+                rec_pend  <= 1'b1;
+                rec_gap   <= 1'b1;
+                rec_delta <= GAP_T[23:0];
+                gap_sent  <= 1'b1;
+            end
+        end
+    end
+
+//-----------------------------------------------------------------------------
 // Control registers, OSD port, timer, read data
 //-----------------------------------------------------------------------------
 reg  [31:0] timer, io_q;
@@ -452,12 +527,12 @@ always @(posedge clk or negedge rst_n)
         osd_we    <= 1'b0;
 
         if (wr && sel_io) begin
-            if (reg_a == 3'd4) begin
+            if (reg_a == 4'd4) begin
                 tape_on    <= mem_wdata[0];
                 tape_turbo <= mem_wdata[1];
                 flush      <= mem_wdata[2];
             end
-            if (reg_a == 3'd5) begin
+            if (reg_a == 4'd5) begin
                 osd_on   <= mem_wdata[0];
                 osd_full <= mem_wdata[1];
             end
@@ -474,14 +549,17 @@ always @(posedge clk or negedge rst_n)
         end
 
         case (reg_a)
-            3'd0:    io_q <= {24'd0, spi_sh};
-            3'd1:    io_q <= {spi_busy, 15'd0, spi_div, 7'd0, spi_cs};
-            3'd2:    io_q <= {21'd0, keys_s};
-            3'd3:    io_q <= {15'd0, idle, 6'd0, used};
-            3'd4:    io_q <= {30'd0, tape_turbo, tape_on};
-            3'd5:    io_q <= {30'd0, osd_full, osd_on};
-            3'd6:    io_q <= timer;
-            default: io_q <= {16'd0, marker};
+            4'd0:    io_q <= {24'd0, spi_sh};
+            4'd1:    io_q <= {spi_busy, 15'd0, spi_div, 7'd0, spi_cs};
+            4'd2:    io_q <= {20'd0, keys_s};
+            4'd3:    io_q <= {15'd0, idle, 6'd0, used};
+            4'd4:    io_q <= {30'd0, tape_turbo, tape_on};
+            4'd5:    io_q <= {30'd0, osd_full, osd_on};
+            4'd6:    io_q <= timer;
+            4'd7:    io_q <= {16'd0, marker};
+            4'd8:    io_q <= {rec_pend, rec_gap, rec_ovf, 5'd0, rec_delta};
+            4'd9:    io_q <= rec_since;
+            default: io_q <= raw_s;
         endcase
     end
 

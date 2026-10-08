@@ -1,0 +1,625 @@
+
+Discarded input sections
+
+ .text          0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccIQmY71.o
+ .data          0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccIQmY71.o
+ .bss           0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccIQmY71.o
+ .text          0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .data          0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .bss           0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .text          0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+ .data          0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+ .bss           0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+ .text.sd_ready
+                0x00000000        0xa C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+ .text          0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .data          0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .bss           0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .text.fat_is_fat32
+                0x00000000        0xa C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .text          0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .data          0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .bss           0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .text.tape_block
+                0x00000000        0xa C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .text          0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .data          0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .bss           0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .text          0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccYQAN9i.o
+ .data          0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccYQAN9i.o
+ .bss           0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccYQAN9i.o
+ .text          0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+ .data          0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+ .bss           0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+ .text          0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccoc5ulm.o
+ .data          0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccoc5ulm.o
+ .bss           0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccoc5ulm.o
+ .text.memcpy   0x00000000       0x16 C:\Users\alxla\AppData\Local\Temp\ccoc5ulm.o
+ .text.memset   0x00000000       0x16 C:\Users\alxla\AppData\Local\Temp\ccoc5ulm.o
+ .debug_info    0x00000000      0x1bc C:\Users\alxla\AppData\Local\Temp\ccoc5ulm.o
+ .debug_abbrev  0x00000000       0xd1 C:\Users\alxla\AppData\Local\Temp\ccoc5ulm.o
+ .debug_loclists
+                0x00000000       0xba C:\Users\alxla\AppData\Local\Temp\ccoc5ulm.o
+ .debug_aranges
+                0x00000000       0x28 C:\Users\alxla\AppData\Local\Temp\ccoc5ulm.o
+ .debug_rnglists
+                0x00000000       0x19 C:\Users\alxla\AppData\Local\Temp\ccoc5ulm.o
+ .debug_line    0x00000000       0xdb C:\Users\alxla\AppData\Local\Temp\ccoc5ulm.o
+ .debug_str     0x00000000      0x165 C:\Users\alxla\AppData\Local\Temp\ccoc5ulm.o
+ .debug_line_str
+                0x00000000       0x90 C:\Users\alxla\AppData\Local\Temp\ccoc5ulm.o
+ .comment       0x00000000       0x34 C:\Users\alxla\AppData\Local\Temp\ccoc5ulm.o
+ .note.GNU-stack
+                0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccoc5ulm.o
+ .debug_frame   0x00000000       0x48 C:\Users\alxla\AppData\Local\Temp\ccoc5ulm.o
+ .riscv.attributes
+                0x00000000       0x36 C:\Users\alxla\AppData\Local\Temp\ccoc5ulm.o
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+RAM              0x00000000         0x00008000         xrw
+*default*        0x00000000         0xffffffff
+
+Linker script and memory map
+
+                0x00008000                        RAM_SIZE = 0x8000
+LOAD C:\Users\alxla\AppData\Local\Temp\ccIQmY71.o
+LOAD C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+LOAD C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+LOAD C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+LOAD C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+LOAD C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+LOAD C:\Users\alxla\AppData\Local\Temp\ccYQAN9i.o
+LOAD C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+LOAD C:\Users\alxla\AppData\Local\Temp\ccoc5ulm.o
+LOAD C:/Tools/xpack-riscv-none-elf-gcc/lib/gcc/riscv-none-elf/15.2.0/rv32imc/ilp32\libgcc.a
+
+.text           0x00000000     0x3274
+ *(.text.start)
+ .text.start    0x00000000       0x28 C:\Users\alxla\AppData\Local\Temp\ccIQmY71.o
+                0x00000000                _start
+ *(.text .text.*)
+ .text.raw_events
+                0x00000028       0x82 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .text.list_cb  0x000000aa       0xde C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .text.play_from
+                0x00000188       0x38 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .text.speed_toggle
+                0x000001c0       0x4e C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .text.status_text
+                0x0000020e       0x8a C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .text.speed_text
+                0x00000298       0x42 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .text.player_rewind
+                0x000002da       0x3a C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .text.player_pause
+                0x00000314       0x6c C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .text.move     0x00000380       0x48 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .text.load_dir
+                0x000003c8      0x170 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .text.mount_card
+                0x00000538       0x38 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .text.enter_dir
+                0x00000570      0x110 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .text.fifo_free
+                0x00000680       0x12 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+                0x00000680                fifo_free
+ .text.startup.main
+                0x00000692      0x82e C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+                0x00000692                main
+ .text.cs       0x00000ec0       0x12 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+ .text.spi      0x00000ed2       0x18 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+ .text.cmd      0x00000eea       0x62 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+ .text.release  0x00000f4c       0x12 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+ .text.sd_init  0x00000f5e      0x158 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+                0x00000f5e                sd_init
+ .text.sd_read  0x000010b6       0xbe C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+                0x000010b6                sd_read
+ .text.sd_write
+                0x00001174       0xba C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+                0x00001174                sd_write
+ .text.rd32     0x0000122e       0x1e C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .text.clus_lba
+                0x0000124c       0x16 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .text.find_cb  0x00001262       0x20 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .text.fat_flush
+                0x00001282       0x62 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .text.fat_load
+                0x000012e4       0x5e C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .text.fat_get  0x00001342       0x36 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .text.fat_next
+                0x00001378       0x20 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .text.fat_set  0x00001398       0x6e C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .text.fat_alloc
+                0x00001406       0xc4 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .text.file_lba
+                0x000014ca       0x6e C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .text.is_vbr.constprop.0
+                0x00001538       0x6c C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .text.fat_mount
+                0x000015a4      0x244 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+                0x000015a4                fat_mount
+ .text.fat_list
+                0x000017e8      0x2b2 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+                0x000017e8                fat_list
+ .text.ff_open  0x00001a9a       0x14 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+                0x00001a9a                ff_open
+ .text.ff_getc  0x00001aae       0xb0 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+                0x00001aae                ff_getc
+ .text.ff_seek  0x00001b5e        0x4 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+                0x00001b5e                ff_seek
+ .text.ff_tell  0x00001b62        0x4 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+                0x00001b62                ff_tell
+ .text.fat_exists
+                0x00001b66       0x30 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+                0x00001b66                fat_exists
+ .text.fw_create
+                0x00001b96      0x166 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+                0x00001b96                fw_create
+ .text.fw_putc  0x00001cfc       0x4c C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+                0x00001cfc                fw_putc
+ .text.fw_patch
+                0x00001d48       0x74 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+                0x00001d48                fw_patch
+ .text.fw_close
+                0x00001dbc       0xaa C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+                0x00001dbc                fw_close
+ .text.fw_discard
+                0x00001e66       0x66 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+                0x00001e66                fw_discard
+ .text.emit_pulses
+                0x00001ecc       0x30 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .text.rd8      0x00001efc       0x1c C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .text.rd16     0x00001f18       0x18 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .text.rd32     0x00001f30       0x18 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .text.rd24     0x00001f48       0x18 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .text.skip     0x00001f60       0x28 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .text.body_skip
+                0x00001f88       0x8e C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .text.goto_block
+                0x00002016       0x62 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .text.emit     0x00002078       0x62 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .text.std_block
+                0x000020da       0x9c C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .text.tape_start
+                0x00002176       0xa4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+                0x00002176                tape_start
+ .text.tape_pump
+                0x0000221a      0x556 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+                0x0000221a                tape_pump
+ .text.tape_continue
+                0x00002770       0x12 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+                0x00002770                tape_continue
+ .text.message  0x00002782       0x34 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .text.fail     0x000027b6       0x2c C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .text.put      0x000027e2       0x2a C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .text.bit      0x0000280c       0x42 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .text.end_block
+                0x0000284e       0x86 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .text.rec_start
+                0x000028d4       0xae C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+                0x000028d4                rec_start
+ .text.rec_service
+                0x00002982      0x182 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+                0x00002982                rec_service
+ .text.rec_end  0x00002b04       0xd6 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+                0x00002b04                rec_end
+ .text.rec_active
+                0x00002bda        0x8 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+                0x00002bda                rec_active
+ .text.rec_speed
+                0x00002be2       0x24 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+                0x00002be2                rec_speed
+ .text.rec_status
+                0x00002c06       0x6c C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+                0x00002c06                rec_status
+ .text.osd_clear
+                0x00002c72       0x18 C:\Users\alxla\AppData\Local\Temp\ccYQAN9i.o
+                0x00002c72                osd_clear
+ .text.osd_text
+                0x00002c8a       0x54 C:\Users\alxla\AppData\Local\Temp\ccYQAN9i.o
+                0x00002c8a                osd_text
+ .text.osd_show
+                0x00002cde       0x14 C:\Users\alxla\AppData\Local\Temp\ccYQAN9i.o
+                0x00002cde                osd_show
+ .text.osd_hide
+                0x00002cf2        0xa C:\Users\alxla\AppData\Local\Temp\ccYQAN9i.o
+                0x00002cf2                osd_hide
+ .text.u_strlen
+                0x00002cfc       0x14 C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+                0x00002cfc                u_strlen
+ .text.u_strcpy
+                0x00002d10       0x12 C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+                0x00002d10                u_strcpy
+ .text.u_strncpy
+                0x00002d22       0x20 C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+                0x00002d22                u_strncpy
+ .text.u_stricmp
+                0x00002d42       0x58 C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+                0x00002d42                u_stricmp
+ .text.u_utoa   0x00002d9a       0x46 C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+                0x00002d9a                u_utoa
+ .text.u_memset
+                0x00002de0       0x10 C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+                0x00002de0                u_memset
+ .text.u_memcpy
+                0x00002df0       0x1c C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+                0x00002df0                u_memcpy
+ .text.u_memcmp
+                0x00002e0c       0x26 C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+                0x00002e0c                u_memcmp
+ *(.rodata .rodata.* .srodata .srodata.*)
+ *fill*         0x00002e32        0x2 
+ .rodata.list_cb.str1.4
+                0x00002e34      0x2be C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+                                  0x8 (size before relaxing)
+ .rodata.status_text.str1.4
+                0x000030f2        0x0 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+                                 0x63 (size before relaxing)
+ *fill*         0x000030f2        0x2 
+ .rodata.status_text
+                0x000030f4       0x18 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .rodata.speed_text.str1.4
+                0x0000310c        0x0 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+                                 0x1d (size before relaxing)
+ .rodata.main.str1.4
+                0x0000310c        0x0 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+                                0x1c8 (size before relaxing)
+ .rodata.is_vbr.constprop.0.str1.4
+                0x0000310c        0x0 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+                                  0xa (size before relaxing)
+ .rodata.lfn_off
+                0x0000310c        0xd C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ *fill*         0x00003119        0x3 
+ .rodata.body_skip
+                0x0000311c       0xc4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .rodata.tape_pump
+                0x000031e0       0x8c C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .srodata.sig.0
+                0x0000326c        0x8 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .rodata.fail.str1.4
+                0x00003274        0x0 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+                                 0x1c (size before relaxing)
+ .rodata.rec_end.str1.4
+                0x00003274        0x0 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+                                 0x2f (size before relaxing)
+ .rodata.rec_status.str1.4
+                0x00003274        0x0 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+                                 0x16 (size before relaxing)
+
+.rela.dyn       0x00003274        0x0
+ .rela.text.start
+                0x00003274        0x0 C:\Users\alxla\AppData\Local\Temp\ccIQmY71.o
+
+.data
+ *(.data .data.* .sdata .sdata.*)
+
+.bss            0x00003274     0x4268
+                0x00003274                        . = ALIGN (0x4)
+                0x00003274                        __bss_start = .
+ *(.bss .bss.* .sbss .sbss.* COMMON)
+ .sbss.rprev    0x00003274        0x3 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ *fill*         0x00003277        0x1 
+ .sbss.speed_t  0x00003278        0x4 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .bss.err_line  0x0000327c       0x21 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ *fill*         0x0000329d        0x3 
+ .sbss.t_rep    0x000032a0        0x4 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .sbss.kprev    0x000032a4        0x4 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .bss.p_name    0x000032a8       0x1e C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ *fill*         0x000032c6        0x2 
+ .sbss.p_block  0x000032c8        0x4 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .sbss.p_stop   0x000032cc        0x4 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .sbss.p_tzx    0x000032d0        0x4 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .sbss.p_state  0x000032d4        0x4 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .bss.tf        0x000032d8      0x218 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .bss.came_from
+                0x000034f0       0x1e C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ *fill*         0x0000350e        0x2 
+ .bss.path      0x00003510       0x40 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .sbss.dir_clus
+                0x00003550        0x4 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .sbss.list_stale
+                0x00003554        0x4 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .sbss.list_folders
+                0x00003558        0x4 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .sbss.closing  0x0000355c        0x4 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .sbss.menu     0x00003560        0x4 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .sbss.mounted  0x00003564        0x4 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .sbss.truncated
+                0x00003568        0x4 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .sbss.top      0x0000356c        0x4 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .sbss.cur      0x00003570        0x4 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .sbss.nent     0x00003574        0x4 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .bss.ent       0x00003578     0x3840 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .sbss.ready    0x00006db8        0x1 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+ .sbss.sdhc     0x00006db9        0x1 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+ *fill*         0x00006dba        0x2 
+ .sbss.div      0x00006dbc        0x4 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+ .sbss.free_hint
+                0x00006dc0        0x4 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .sbss.fsinfo_lba
+                0x00006dc4        0x4 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .sbss.fatsz    0x00006dc8        0x4 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .sbss.max_clus
+                0x00006dcc        0x4 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .sbss.root_clus
+                0x00006dd0        0x4 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .sbss.data_lba
+                0x00006dd4        0x4 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .sbss.root_secs
+                0x00006dd8        0x4 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .sbss.root_lba
+                0x00006ddc        0x4 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .sbss.fat_lba  0x00006de0        0x4 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .sbss.spc      0x00006de4        0x4 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .sbss.fsinfo_done
+                0x00006de8        0x1 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .sbss.fat_dirty
+                0x00006de9        0x1 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .sbss.nfats    0x00006dea        0x1 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .sbss.spc_shift
+                0x00006deb        0x1 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .sbss.fat32    0x00006dec        0x1 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ *fill*         0x00006ded        0x3 
+ .sbss.fatbuf_lba
+                0x00006df0        0x4 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .bss.fatbuf    0x00006df4      0x200 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .bss.secbuf    0x00006ff4      0x200 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .sbss.n_emit   0x000071f4        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.call_blk
+                0x000071f8        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.call_pos
+                0x000071fc        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.call_i   0x00007200        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.call_n   0x00007204        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.loop_blk
+                0x00007208        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.loop_cnt
+                0x0000720c        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.dir_tps  0x00007210        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.seq_cnt  0x00007214        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.tone_cnt
+                0x00007218        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.tone_len
+                0x0000721c        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.first    0x00007220        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.pause_t  0x00007224        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.data_left
+                0x00007228        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.one      0x0000722c        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.zero     0x00007230        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.sync2    0x00007234        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.sync1    0x00007238        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.pilot_cnt
+                0x0000723c        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.pilot_len
+                0x00007240        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.blk_cur  0x00007244        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.blk_next
+                0x00007248        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.has_sync
+                0x0000724c        0x1 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.last_bits
+                0x0000724d        0x1 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.g        0x0000724e        0x1 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.lvl      0x0000724f        0x1 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .sbss.tzx      0x00007250        0x1 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ *fill*         0x00007251        0x3 
+ .sbss.f        0x00007254        0x4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .bss.msg       0x00007258       0x28 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .sbss.msg_t    0x00007280        0x4 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .bss.fname     0x00007284        0xd C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ *fill*         0x00007291        0x3 
+ .bss.wf        0x00007294      0x218 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .sbss.cur      0x000074ac        0x1 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ *fill*         0x000074ad        0x3 
+ .sbss.len_pos  0x000074b0        0x4 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .sbss.blk_len  0x000074b4        0x4 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .sbss.first_half
+                0x000074b8        0x4 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .sbss.blocks   0x000074bc        0x4 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .sbss.in_block
+                0x000074c0        0x4 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .sbss.nbits    0x000074c4        0x4 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .sbss.half     0x000074c8        0x4 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .sbss.pc       0x000074cc        0x4 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .sbss.dst      0x000074d0        0x4 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .sbss.on       0x000074d4        0x4 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .sbss.slow_mode
+                0x000074d8        0x4 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+                0x000074d8                slow_mode
+                0x000074dc                        . = ALIGN (0x4)
+                0x000074dc                        __bss_end = .
+                0x00008000                        __stack_top = (ORIGIN (RAM) + LENGTH (RAM))
+                0x00000001                        ASSERT ((SIZEOF (.data) == 0x0), no initialised writable data allowed (a reset would not restore it))
+                0x00000001                        ASSERT (((__bss_end + 0x600) <= __stack_top), less than 1.5 KB left for the stack)
+OUTPUT(build/fw.elf elf32-littleriscv)
+
+.riscv.attributes
+                0x00000000       0x36
+ .riscv.attributes
+                0x00000000       0x34 C:\Users\alxla\AppData\Local\Temp\ccIQmY71.o
+ .riscv.attributes
+                0x00000034       0x36 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .riscv.attributes
+                0x0000006a       0x36 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+ .riscv.attributes
+                0x000000a0       0x36 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .riscv.attributes
+                0x000000d6       0x36 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .riscv.attributes
+                0x0000010c       0x36 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .riscv.attributes
+                0x00000142       0x36 C:\Users\alxla\AppData\Local\Temp\ccYQAN9i.o
+ .riscv.attributes
+                0x00000178       0x36 C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+
+.comment        0x00000000       0x33
+ .comment       0x00000000       0x33 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+                                 0x34 (size before relaxing)
+ .comment       0x00000033        0x0 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+                                 0x34 (size before relaxing)
+ .comment       0x00000033        0x0 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+                                 0x34 (size before relaxing)
+ .comment       0x00000033        0x0 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+                                 0x34 (size before relaxing)
+ .comment       0x00000033        0x0 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+                                 0x34 (size before relaxing)
+ .comment       0x00000033        0x0 C:\Users\alxla\AppData\Local\Temp\ccYQAN9i.o
+                                 0x34 (size before relaxing)
+ .comment       0x00000033        0x0 C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+                                 0x34 (size before relaxing)
+
+.note.GNU-stack
+                0x00000000        0x0
+ .note.GNU-stack
+                0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .note.GNU-stack
+                0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+ .note.GNU-stack
+                0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .note.GNU-stack
+                0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .note.GNU-stack
+                0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .note.GNU-stack
+                0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccYQAN9i.o
+ .note.GNU-stack
+                0x00000000        0x0 C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+
+.debug_line     0x00000000     0x7c12
+ .debug_line    0x00000000       0x74 C:\Users\alxla\AppData\Local\Temp\ccIQmY71.o
+ .debug_line    0x00000074     0x23c0 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .debug_line    0x00002434      0x963 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+ .debug_line    0x00002d97     0x236d C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .debug_line    0x00005104     0x15b4 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .debug_line    0x000066b8      0xe1c C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .debug_line    0x000074d4      0x235 C:\Users\alxla\AppData\Local\Temp\ccYQAN9i.o
+ .debug_line    0x00007709      0x509 C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+
+.debug_line_str
+                0x00000000       0xcd
+ .debug_line_str
+                0x00000000       0xcd C:\Users\alxla\AppData\Local\Temp\ccIQmY71.o
+                                 0x29 (size before relaxing)
+ .debug_line_str
+                0x000000cd        0x0 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+                                 0xa3 (size before relaxing)
+ .debug_line_str
+                0x000000cd        0x0 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+                                 0x7b (size before relaxing)
+ .debug_line_str
+                0x000000cd        0x0 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+                                 0x8f (size before relaxing)
+ .debug_line_str
+                0x000000cd        0x0 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+                                 0x89 (size before relaxing)
+ .debug_line_str
+                0x000000cd        0x0 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+                                 0x91 (size before relaxing)
+ .debug_line_str
+                0x000000cd        0x0 C:\Users\alxla\AppData\Local\Temp\ccYQAN9i.o
+                                 0x7c (size before relaxing)
+ .debug_line_str
+                0x000000cd        0x0 C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+                                 0x7d (size before relaxing)
+
+.debug_info     0x00000000     0x54eb
+ .debug_info    0x00000000       0x24 C:\Users\alxla\AppData\Local\Temp\ccIQmY71.o
+ .debug_info    0x00000024     0x1a5a C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .debug_info    0x00001a7e      0x670 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+ .debug_info    0x000020ee     0x177f C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .debug_info    0x0000386d      0xbdc C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .debug_info    0x00004449      0xb14 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .debug_info    0x00004f5d      0x1b1 C:\Users\alxla\AppData\Local\Temp\ccYQAN9i.o
+ .debug_info    0x0000510e      0x3dd C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+
+.debug_abbrev   0x00000000     0x1516
+ .debug_abbrev  0x00000000       0x14 C:\Users\alxla\AppData\Local\Temp\ccIQmY71.o
+ .debug_abbrev  0x00000014      0x5c9 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .debug_abbrev  0x000005dd      0x18e C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+ .debug_abbrev  0x0000076b      0x423 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .debug_abbrev  0x00000b8e      0x388 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .debug_abbrev  0x00000f16      0x363 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .debug_abbrev  0x00001279      0x10f C:\Users\alxla\AppData\Local\Temp\ccYQAN9i.o
+ .debug_abbrev  0x00001388      0x18e C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+
+.debug_aranges  0x00000000      0x360
+ .debug_aranges
+                0x00000000       0x20 C:\Users\alxla\AppData\Local\Temp\ccIQmY71.o
+ .debug_aranges
+                0x00000020       0x88 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .debug_aranges
+                0x000000a8       0x58 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+ .debug_aranges
+                0x00000100       0xd8 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .debug_aranges
+                0x000001d8       0x88 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .debug_aranges
+                0x00000260       0x70 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .debug_aranges
+                0x000002d0       0x38 C:\Users\alxla\AppData\Local\Temp\ccYQAN9i.o
+ .debug_aranges
+                0x00000308       0x58 C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+
+.debug_str      0x00000000      0x8af
+ .debug_str     0x00000000      0x8af C:\Users\alxla\AppData\Local\Temp\ccIQmY71.o
+                                 0x35 (size before relaxing)
+ .debug_str     0x000008af        0x0 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+                                0x4c9 (size before relaxing)
+ .debug_str     0x000008af        0x0 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+                                0x174 (size before relaxing)
+ .debug_str     0x000008af        0x0 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+                                0x38e (size before relaxing)
+ .debug_str     0x000008af        0x0 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+                                0x335 (size before relaxing)
+ .debug_str     0x000008af        0x0 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+                                0x2c9 (size before relaxing)
+ .debug_str     0x000008af        0x0 C:\Users\alxla\AppData\Local\Temp\ccYQAN9i.o
+                                0x16f (size before relaxing)
+ .debug_str     0x000008af        0x0 C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+                                0x18d (size before relaxing)
+
+.debug_loclists
+                0x00000000     0x27b8
+ .debug_loclists
+                0x00000000      0x9f6 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .debug_loclists
+                0x000009f6      0x2ef C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+ .debug_loclists
+                0x00000ce5      0xdce C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .debug_loclists
+                0x00001ab3      0x447 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .debug_loclists
+                0x00001efa      0x448 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .debug_loclists
+                0x00002342      0x119 C:\Users\alxla\AppData\Local\Temp\ccYQAN9i.o
+ .debug_loclists
+                0x0000245b      0x35d C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+
+.debug_rnglists
+                0x00000000      0x597
+ .debug_rnglists
+                0x00000000      0x1c1 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .debug_rnglists
+                0x000001c1       0x41 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+ .debug_rnglists
+                0x00000202      0x13d C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .debug_rnglists
+                0x0000033f       0xd7 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .debug_rnglists
+                0x00000416       0xfe C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .debug_rnglists
+                0x00000514       0x37 C:\Users\alxla\AppData\Local\Temp\ccYQAN9i.o
+ .debug_rnglists
+                0x0000054b       0x4c C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
+
+.debug_frame    0x00000000      0xb7c
+ .debug_frame   0x00000000      0x210 C:\Users\alxla\AppData\Local\Temp\cc2uoj37.o
+ .debug_frame   0x00000210      0x130 C:\Users\alxla\AppData\Local\Temp\ccOpVPEk.o
+ .debug_frame   0x00000340      0x3b8 C:\Users\alxla\AppData\Local\Temp\ccKrrhUQ.o
+ .debug_frame   0x000006f8      0x208 C:\Users\alxla\AppData\Local\Temp\ccKt0g2y.o
+ .debug_frame   0x00000900      0x194 C:\Users\alxla\AppData\Local\Temp\ccIAEROm.o
+ .debug_frame   0x00000a94       0x50 C:\Users\alxla\AppData\Local\Temp\ccYQAN9i.o
+ .debug_frame   0x00000ae4       0x98 C:\Users\alxla\AppData\Local\Temp\ccAKzFFi.o
