@@ -29,6 +29,8 @@ set_global_assignment -name VERILOG_FILE rtl/sys_pll.v
 set_global_assignment -name VERILOG_FILE rtl/vga_pll.v
 set_global_assignment -name VERILOG_FILE rtl/vga_clkmux.v
 set_global_assignment -name VERILOG_FILE rtl/vga_timing.v
+set_global_assignment -name VERILOG_FILE rtl/tape_loader.v
+set_global_assignment -name VERILOG_FILE rtl/picorv32/picorv32.v
 set_global_assignment -name VERILOG_FILE rtl/jt49/jt49_bus.v
 set_global_assignment -name VERILOG_FILE rtl/jt49/jt49.v
 set_global_assignment -name VERILOG_FILE rtl/jt49/jt49_cen.v
@@ -67,7 +69,6 @@ set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to VGA_VSYNC
 # On-board
 set_location_assignment PIN_T2  -to CLOCK_50
 set_location_assignment PIN_W13 -to RESET_N
-set_location_assignment PIN_Y13 -to KEY1
 set_location_assignment PIN_E4  -to LEDR
 
 # SDRAM W9825G6KH
@@ -126,6 +127,10 @@ set_location_assignment PIN_AA19 -to KBD_A
 set_location_assignment PIN_AA18 -to KBD_B
 set_location_assignment PIN_AB17 -to GND_TIE[0]
 set_location_assignment PIN_AA17 -to GND_TIE[1]
+set_location_assignment PIN_AA13 -to SD_MOSI
+set_location_assignment PIN_AA14 -to SD_MISO
+set_location_assignment PIN_AA15 -to SD_SCK
+set_location_assignment PIN_AA16 -to SD_CS_N
 
 # U7 <- adapter J1 (wired)
 set_location_assignment PIN_J1 -to AUDIO_AY
@@ -149,10 +154,11 @@ set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to JOY_DOWN_N
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to JOY_LEFT_N
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to JOY_RIGHT_N
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to JOY_FIRE_N
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to SD_MISO
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to SD_CS_N
 
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to CLOCK_50
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to RESET_N
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to KEY1
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LEDR
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R_LOW
@@ -176,6 +182,10 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to JOY_DOWN_N
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to JOY_LEFT_N
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to JOY_RIGHT_N
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to JOY_FIRE_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SD_MOSI
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SD_MISO
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SD_SCK
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SD_CS_N
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_ADDR[*]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_BA[*]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_CAS_N
@@ -188,7 +198,7 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_RAS_N
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_UDQM
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_WE_N
 
-set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
 set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
 set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
+set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

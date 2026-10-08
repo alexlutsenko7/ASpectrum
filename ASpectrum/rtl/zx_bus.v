@@ -30,6 +30,8 @@
 //   write A15=0, A1=0   port 7FFD: RAM page [2:0], screen [3], ROM [4], lock [5]
 //   write A15=1 A14=1 A1=0  AY register select (FFFD); A15=1 A14=0 A1=0  AY data (BFFD)
 //   read  A0=0          keyboard (A8-A15 select rows), EAR on bit 6, bits 5/7 = 1
+//                       EAR = SD tape loader while it plays (ltape_on), else the
+//                       TAPE_IN pin for 75 ms after each edge, else the beeper
 //   read  FFFD          AY register
 //   read  A0=1 A5=0     Kempston joystick (port 1F)
 //   other reads         0xFF (floating bus not emulated yet)
@@ -51,12 +53,15 @@ module zx_bus #(
     input  wire        run,             // ROMs loaded: CPU may run
 
     input  wire        turbo,
-    input  wire        diag_key,        // KEY1 pressed: DiagROM if held when the CPU starts
+    input  wire        diag_key,        // F1 held: DiagROM if held when the CPU starts
     input  wire        vid50,           // video in 50 Hz mode (other clock domain)
     input  wire        vsync_n,         // video vsync (other clock domain)
     input  wire [39:0] kb_rows,         // 8 rows x 5 keys, active low, row i = A(8+i)
     input  wire [4:0]  joy,             // Kempston: fire, up, down, left, right (active high)
     input  wire        tape_in,         // asynchronous
+    input  wire        ltape_on,        // SD tape loader drives EAR (56 MHz domain)
+    input  wire        ltape_lvl,
+    output reg         cen_tgl,         // toggles on every CPU T-state (for the tape loader)
 
     // SDRAM port (sdram_ram protocol: req pulse, hold until ack)
     output reg         sd_req,
@@ -89,7 +94,10 @@ module zx_bus #(
 // Synchronisers
 //-----------------------------------------------------------------------------
 reg [2:0] turbo_s, vid50_s, vsync_s, tape_s, diag_s;
+reg [1:0] lon_s, llvl_s;
 always @(posedge clk) begin
+    lon_s   <= {lon_s[0],  ltape_on};
+    llvl_s  <= {llvl_s[0], ltape_lvl};
     turbo_s <= {turbo_s[1:0], turbo};
     vid50_s <= {vid50_s[1:0], vid50};
     vsync_s <= {vsync_s[1:0], vsync_n};
@@ -100,7 +108,7 @@ end
 wire cpu_rst_n = rst_n & run;
 assign cpu_running = cpu_rst_n;
 
-// DiagROM select: follows KEY1 while the CPU is held in reset, frozen when it starts
+// DiagROM select: follows F1 while the CPU is held in reset, frozen when it starts
 always @(posedge clk or negedge rst_n)
     if (!rst_n)          diag_rom <= 1'b0;
     else if (!run)       diag_rom <= diag_s[2];
@@ -153,7 +161,9 @@ always @(posedge clk or negedge cpu_rst_n)
         owed  <= 1'b0;
         since <= 2'd3;
         cen_d <= 1'b0;
+        cen_tgl <= 1'b0;
     end else begin
+        if (cen) cen_tgl <= !cen_tgl;
         dds   <= dds_next[31:0];
         tick  <= dds_next[32];
         owed  <= (tick | owed) & !cen;
@@ -318,7 +328,7 @@ always @* begin
         if (!a_lat[8 + r]) kb_and = kb_and & kb_rows[5*r +: 5];
 end
 
-wire ear = tape_active ? !tape_s[2] : beeper;
+wire ear = lon_s[1] ? llvl_s[1] : tape_active ? !tape_s[2] : beeper;
 
 always @(posedge clk)
     if (!a_lat[0])                                   io_data <= {1'b1, ear, 1'b1, kb_and};

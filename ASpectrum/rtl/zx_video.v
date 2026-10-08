@@ -13,10 +13,17 @@
 // Fetch per 8-pixel cell (16 VGA pixels), la = x - border + 4 (4 px ahead):
 //   la[3:0] = 0: bitmap address -> 1: bitmap byte, attribute address
 //   -> 2: attribute byte -> 3: both loaded for the cell that starts next clock.
+//
+// OSD (SD tape loader): 32 x 24 characters over the 256 x 192 picture, Spectrum
+// font (FONT_HEX, from the 48K ROM), white on blue, bit 7 of a character =
+// inverse. osd_full = 0 shows only the bottom row (status bar). Same fetch
+// timing: la 0: text address -> 1: character, font address -> 2: font row.
 //=============================================================================
 `default_nettype none
 
-module zx_video (
+module zx_video #(
+    parameter FONT_HEX = "rtl/osd_font.hex"
+)(
     input  wire        pclk,
     input  wire        prst_n,
     input  wire        mode50,
@@ -29,6 +36,13 @@ module zx_video (
     input  wire        sh_page7,
     input  wire [12:0] sh_addr,
     input  wire [7:0]  sh_data,
+
+    input  wire        osd_wclk,        // OSD text write port (tape loader clock)
+    input  wire        osd_we,
+    input  wire [9:0]  osd_waddr,
+    input  wire [7:0]  osd_wdata,
+    input  wire        osd_on,          // tape loader clock domain
+    input  wire        osd_full,
 
     output reg         vga_r,
     output reg         vga_r_low,
@@ -57,6 +71,24 @@ always @(posedge wclk)
 always @(posedge pclk) begin
     q5 <= sh5[raddr];
     q7 <= sh7[raddr];
+end
+
+//-----------------------------------------------------------------------------
+// OSD text (simple dual port, separate clocks) and font ROM
+//-----------------------------------------------------------------------------
+reg [7:0] txt  [0:1023];
+reg [7:0] font [0:1023];
+reg [7:0] tq, fq;
+reg [9:0] taddr;
+initial $readmemh(FONT_HEX, font);
+
+always @(posedge osd_wclk)
+    if (osd_we) txt[osd_waddr] <= osd_wdata;
+
+reg [1:0] oon_s, ofull_s;
+always @(posedge pclk) begin
+    oon_s   <= {oon_s[0],   osd_on};
+    ofull_s <= {ofull_s[0], osd_full};
 end
 
 //-----------------------------------------------------------------------------
@@ -108,12 +140,20 @@ always @* begin
         raddr = {zy[7:6], zy[2:0], zy[5:3], la_cx};     // bitmap
     else
         raddr = {3'b110, zy[7:3], la_cx};               // attributes (0x1800 + ...)
+    taddr = {zy[7:3], la_cx};                           // OSD text: row * 32 + column
+end
+
+always @(posedge pclk) begin
+    tq <= txt[taddr];
+    fq <= font[{tq[6:0], zy[2:0]}];
 end
 
 //-----------------------------------------------------------------------------
 // Pixel pipeline
 //-----------------------------------------------------------------------------
 reg [7:0] bm_next, at_next, bm, at;
+reg [7:0] obm_next, obm;
+reg       oinv;
 reg [4:0] fcnt;
 reg       flash, vs_prev;
 
@@ -123,14 +163,17 @@ always @(posedge pclk or negedge prst_n)
         at_next <= 8'd0;
         bm      <= 8'd0;
         at      <= 8'd0;
+        obm_next <= 8'd0;
+        obm     <= 8'd0;
+        oinv    <= 1'b0;
         fcnt    <= 5'd0;
         flash   <= 1'b0;
         vs_prev <= 1'b1;
     end else begin
         if (in_y && la_in) begin
-            if (la[3:0] == 4'd1) bm_next <= q;
-            if (la[3:0] == 4'd2) at_next <= q;
-            if (la[3:0] == 4'd3) begin bm <= bm_next; at <= at_next; end
+            if (la[3:0] == 4'd1) begin bm_next <= q; oinv <= tq[7]; end
+            if (la[3:0] == 4'd2) begin at_next <= q; obm_next <= fq ^ {8{oinv}}; end
+            if (la[3:0] == 4'd3) begin bm <= bm_next; at <= at_next; obm <= obm_next; end
         end
         // FLASH: swap ink and paper every 16 frames
         vs_prev <= vsync_n;
@@ -141,6 +184,8 @@ always @(posedge pclk or negedge prst_n)
     end
 
 wire       pix    = bm[~rel[3:1]];
+wire       osd    = oon_s[1] && (ofull_s[1] || zy[7:3] == 5'd23);   // OSD covers this line
+wire       opix   = obm[~rel[3:1]];
 wire       ink_on = pix ^ (at[7] & flash);
 wire [2:0] col    = ink_on ? at[2:0] : at[5:3];        // G R B
 
@@ -152,7 +197,11 @@ always @(posedge pclk or negedge prst_n)
     end else begin
         if (!active)
             {vga_r, vga_r_low, vga_g, vga_g_low, vga_b, vga_b_low} <= 6'd0;
-        else if (in_y && in_x) begin
+        else if (in_y && in_x && osd) begin                 // OSD: white on blue
+            vga_r <= opix;    vga_r_low <= opix;
+            vga_g <= opix;    vga_g_low <= opix;
+            vga_b <= 1'b1;    vga_b_low <= opix;
+        end else if (in_y && in_x) begin
             vga_r <= col[1];  vga_r_low <= col[1] & at[6];
             vga_g <= col[2];  vga_g_low <= col[2] & at[6];
             vga_b <= col[0];  vga_b_low <= col[0] & at[6];

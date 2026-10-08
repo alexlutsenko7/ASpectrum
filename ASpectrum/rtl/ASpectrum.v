@@ -3,17 +3,22 @@
 //              with the user's QM_Atrix I/O adapter (prototype fit: adapter J2
 //              plugged into U8, J1 wired to U7; see docs/BOARD_PINOUT.md)
 //
-// Clocks: sys_pll  c0 = 112 MHz system clock, c1 = 112 MHz delayed (SDRAM clock)
+// Clocks: sys_pll  c0 = 112 MHz system clock, c1 = 112 MHz delayed (SDRAM clock),
+//                  c2 = 56 MHz (SD tape loader, aligned with c0)
 //         vga_pll  c0 = 25 MHz (640x480@60), c1 = 27 MHz (720x576@50), switched
 //                  by the global clock control block (sequenced as in VGA_TEST)
 //
-// Controls:
-//   KEY0 (W13)  reset (CPU, ports, ROM reload)
-//   KEY1 (Y13)  held while the CPU starts (power-up or after KEY0): DiagROM.
-//               Pressed while running: swap 50/60 Hz video.
-//   S1 (U7.22)  50/60 Hz default (high = 50 Hz; weak pull-up while unwired)
-//   TURBO_N     low = 28 MHz CPU (SD card loader / tape simulator)
-//   LED         on = turbo; fast blink = no ROM image in flash (program the .jic)
+// Controls (USB keyboard keys: see zx_keyboard.v, docs/SD_TAPE_LOADER.md):
+//   KEY0 (W13)    reset (CPU, ports, ROM reload, tape loader)
+//   Ctrl+Alt+Del  reset of the machine only (the tape loader keeps running)
+//   F1            held while the CPU starts (power-up or after a reset): DiagROM
+//   F8            swap 50/60 Hz video
+//   F12 / numpad  SD card tape loader (browser on the OSD)
+//   S1 (U7.22)    50/60 Hz default (high = 50 Hz; weak pull-up while unwired)
+//   TURBO_N       low = 28 MHz CPU (external tape simulator); the internal SD
+//                 loader switches turbo on by itself while it plays
+//   LED           on = turbo; fast blink = no ROM image in flash (program the .jic)
+//   KEY1 (Y13)    not used
 //=============================================================================
 `default_nettype none
 
@@ -23,7 +28,6 @@ module ASpectrum #(
 )(
     input  wire        CLOCK_50,
     input  wire        RESET_N,
-    input  wire        KEY1,
     output wire        LEDR,
 
     // SDRAM
@@ -54,6 +58,12 @@ module ASpectrum #(
     input  wire        KBD_B,           // not confirmed -> both inputs (pulled up), RX = KBD_A & KBD_B
     input  wire [1:0]  GND_TIE,         // grounded by the adapter: inputs only
 
+    // SD card (Adafruit MicroSD BFF on U8.7-13)
+    output wire        SD_CS_N,
+    output wire        SD_SCK,
+    output wire        SD_MOSI,
+    input  wire        SD_MISO,
+
     // adapter J1, wired to U7
     output wire        AUDIO_AY,
     output wire        AUDIO_BEEPER,
@@ -68,21 +78,42 @@ module ASpectrum #(
 //-----------------------------------------------------------------------------
 // System clock and reset
 //-----------------------------------------------------------------------------
-wire clk, clk_sd, sys_locked;
+wire clk, clk_sd, clk56, sys_locked;
 
 sys_pll #(.SD_PHASE_PS(SD_PHASE_PS)) u_pll (
     .inclk0 (CLOCK_50),
     .c0     (clk),
     .c1     (clk_sd),
+    .c2     (clk56),
     .locked (sys_locked)
 );
 
-wire       arst_n = RESET_N & sys_locked;
-reg  [2:0] rst_sr;
+// por_n: power-up only (keyboard); rst_n: machine (+ KEY0, Ctrl+Alt+Del);
+// rst56_n: tape loader (+ KEY0)
+wire       kbd_cad, kbd_f8_tgl;
+reg  [2:0] por_sr, rst_sr, rst56_sr;
+reg        cad_q;
+wire       key_arst_n = RESET_N & sys_locked;
+wire       arst_n     = key_arst_n & !cad_q;
+
+always @(posedge clk or negedge sys_locked)
+    if (!sys_locked) por_sr <= 3'b000;
+    else             por_sr <= {por_sr[1:0], 1'b1};
+wire por_n = por_sr[2];
+
+always @(posedge clk or negedge por_n)
+    if (!por_n) cad_q <= 1'b0;
+    else        cad_q <= kbd_cad;
+
 always @(posedge clk or negedge arst_n)
     if (!arst_n) rst_sr <= 3'b000;
     else         rst_sr <= {rst_sr[1:0], 1'b1};
 wire rst_n = rst_sr[2];
+
+always @(posedge clk56 or negedge key_arst_n)
+    if (!key_arst_n) rst56_sr <= 3'b000;
+    else             rst56_sr <= {rst56_sr[1:0], 1'b1};
+wire rst56_n = rst56_sr[2];
 
 // SDRAM clock = inverted clk_sd through a DDIO output (same I/O delay as the
 // command/data pins), exactly as in DDR_TEST
@@ -131,33 +162,16 @@ always @(posedge CLOCK_50 or negedge vga_locked)
     else             rst50_sr <= {rst50_sr[1:0], 1'b1};
 wire rst50_n = rst50_sr[2];
 
-wire sw_50, key_down;
+wire sw_50;
 debounce u_db_sw  (.clk(CLOCK_50), .rst_n(rst50_n), .in(SW_HIGH_IS_50 ? SW_50_60 : !SW_50_60), .out(sw_50));
-debounce u_db_key (.clk(CLOCK_50), .rst_n(rst50_n), .in(!KEY1), .out(key_down));
 
-// KEY1 toggles 50/60 only after it has been released following a reset, so
-// holding it for DiagROM does not also swap the video mode. The video mode
-// survives KEY0 (this domain is reset by the PLL only).
-reg [1:0] key0_s;
-reg       key_d, armed, flip;
+// F8 (keyboard, power-on reset only) toggles kbd_f8_tgl: the video mode survives resets
+reg [1:0] f8_s;
 always @(posedge CLOCK_50 or negedge rst50_n)
-    if (!rst50_n) begin
-        key0_s <= 2'b00;
-        key_d  <= 1'b0;
-        armed  <= 1'b0;
-        flip   <= 1'b0;
-    end else begin
-        key0_s <= {key0_s[0], RESET_N};
-        key_d  <= key_down;
-        if (!key0_s[1])
-            armed <= 1'b0;
-        else if (!key_down)
-            armed <= 1'b1;
-        if (armed && key_down && !key_d)
-            flip <= !flip;
-    end
+    if (!rst50_n) f8_s <= 2'b00;
+    else          f8_s <= {f8_s[0], kbd_f8_tgl};
 
-wire mode_req = sw_50 ^ flip;
+wire mode_req = sw_50 ^ f8_s[1];
 
 localparam [1:0] S_OFF = 2'd0, S_SEL = 2'd1, S_ENA = 2'd2, S_RUN = 2'd3;
 reg  [1:0] vstate;
@@ -219,11 +233,13 @@ wire led;
 
 zx_system u_sys (
     .clk          (clk),
+    .por_n        (por_n),
     .rst_n        (rst_n),
+    .clk56        (clk56),
+    .rst56_n      (rst56_n),
     .pclk         (pclk),
     .prst_n       (prst_n),
     .mode50       (sel),
-    .key1_n       (KEY1),
     .turbo_n      (TURBO_N),
     .tape_in      (TAPE_IN),
     .kbd_rx       (KBD_A & KBD_B),
@@ -239,6 +255,12 @@ zx_system u_sys (
     .sd_dq_o      (dq_o),
     .sd_dq_oe     (dq_oe),
     .sd_dq_i      (DRAM_DQ),
+    .sdc_cs_n     (SD_CS_N),
+    .sdc_sck      (SD_SCK),
+    .sdc_mosi     (SD_MOSI),
+    .sdc_miso     (SD_MISO),
+    .kbd_f8_tgl   (kbd_f8_tgl),
+    .kbd_cad      (kbd_cad),
     .f_dclk       (f_dclk),
     .f_ncs        (f_ncs),
     .f_mosi       (f_mosi),

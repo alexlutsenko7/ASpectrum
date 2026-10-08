@@ -1,27 +1,41 @@
 //=============================================================================
 // zx_system -- the ZX Spectrum 128 without clocks/PLLs and pin buffers
 //
-//   clk  112 MHz system clock: SDRAM controller, ROM loader, CPU + bus, AY,
-//        keyboard, audio
-//   pclk pixel clock (25 or 27 MHz, mode50 selects the timing): video
+//   clk   112 MHz system clock: SDRAM controller, ROM loader, CPU + bus, AY,
+//         keyboard, audio
+//   clk56 56 MHz from the same PLL (edges aligned with clk): SD tape loader
+//   pclk  pixel clock (25 or 27 MHz, mode50 selects the timing): video
+//
+// Resets: por_n (power-up only): keyboard, so held keys survive a machine
+// reset; rst_n (+ KEY0, Ctrl+Alt+Del): machine; rst56_n (+ KEY0): tape loader.
 //
 // After reset the ROM loader copies the ROMs from flash to SDRAM, then the
-// CPU starts. Holding KEY1 while the CPU starts selects DiagROM.
+// CPU starts. Holding F1 while the CPU starts selects DiagROM. At power-up the
+// CPU also waits for the first keyboard packet (at most KBD_WAIT_MS), so F1
+// held during power-up is seen.
 //=============================================================================
 `default_nettype none
 
 module zx_system #(
-    parameter integer CLK_MHZ   = 112,
-    parameter integer FLASH_DIV = 4
+    parameter integer CLK_MHZ     = 112,
+    parameter integer FLASH_DIV   = 4,
+    parameter integer KBD_WAIT_MS = 1500,
+    parameter         FW0 = "fw/build/fw0.hex",
+    parameter         FW1 = "fw/build/fw1.hex",
+    parameter         FW2 = "fw/build/fw2.hex",
+    parameter         FW3 = "fw/build/fw3.hex",
+    parameter         FONT_HEX = "rtl/osd_font.hex"
 )(
     input  wire        clk,
-    input  wire        rst_n,           // synchronous to clk (released after the PLL locked)
+    input  wire        por_n,           // synchronous to clk: power-up only
+    input  wire        rst_n,           // synchronous to clk: machine reset
+    input  wire        clk56,
+    input  wire        rst56_n,         // synchronous to clk56
     input  wire        pclk,
     input  wire        prst_n,
     input  wire        mode50,          // video mode (static while prst_n = 1)
 
     // board / adapter inputs (asynchronous)
-    input  wire        key1_n,
     input  wire        turbo_n,
     input  wire        tape_in,
     input  wire        kbd_rx,
@@ -39,6 +53,16 @@ module zx_system #(
     output wire [15:0] sd_dq_o,
     output wire        sd_dq_oe,
     input  wire [15:0] sd_dq_i,
+
+    // SD card (SPI)
+    output wire        sdc_cs_n,
+    output wire        sdc_sck,
+    output wire        sdc_mosi,
+    input  wire        sdc_miso,
+
+    // keyboard machine keys (clk domain)
+    output wire        kbd_f8_tgl,      // 50/60 Hz swap
+    output wire        kbd_cad,         // Ctrl+Alt+Del
 
     // flash (flash_if)
     output wire        f_dclk,
@@ -60,7 +84,7 @@ module zx_system #(
     output wire        audio_ay,
     output wire        audio_beeper,
 
-    output reg         led              // on = turbo; fast blink = ROMs missing in flash
+    output reg         led              // on = turbo (pin or tape loader); fast blink = ROMs missing in flash
 );
 
 //-----------------------------------------------------------------------------
@@ -115,16 +139,38 @@ rom_loader #(.DIV(FLASH_DIV)) u_loader (
 );
 
 //-----------------------------------------------------------------------------
-// Keyboard, AY
+// Keyboard (power-on reset only), AY
 //-----------------------------------------------------------------------------
 wire [39:0] kb_rows;
+wire [10:0] lkeys;
+wire        kb_f1, kb_seen;
+wire        l_osd_on, l_osd_full;
 
 zx_keyboard #(.CLK_HZ(CLK_MHZ * 1000000)) u_kbd (
-    .clk   (clk),
-    .rst_n (rst_n),
-    .rx    (kbd_rx),
-    .rows  (kb_rows)
+    .clk    (clk),
+    .rst_n  (por_n),
+    .rx     (kbd_rx),
+    .block  (l_osd_on & l_osd_full),
+    .rows   (kb_rows),
+    .lkeys  (lkeys),
+    .f1     (kb_f1),
+    .f8_tgl (kbd_f8_tgl),
+    .cad    (kbd_cad),
+    .seen   (kb_seen)
 );
+
+// power-up: wait for the keyboard (first packet) or KBD_WAIT_MS before the CPU starts
+localparam integer KBD_WAIT = KBD_WAIT_MS * CLK_MHZ * 1000;
+reg [31:0] kbd_cnt;
+reg        kbd_ready;
+always @(posedge clk or negedge por_n)
+    if (!por_n) begin
+        kbd_cnt   <= 32'd0;
+        kbd_ready <= 1'b0;
+    end else if (kb_seen || kbd_cnt == KBD_WAIT)
+        kbd_ready <= 1'b1;
+    else
+        kbd_cnt <= kbd_cnt + 32'd1;
 
 // AY clock enable: 3.5469 MHz (jt49 divides by 2 -> 1.7734 MHz, as the 128), independent of turbo
 reg  [31:0] ay_dds;
@@ -169,7 +215,8 @@ sd_dac #(.W(10)) u_dac (
 //-----------------------------------------------------------------------------
 // CPU, bus, ports
 //-----------------------------------------------------------------------------
-wire        sh_we, sh_page7, screen7, beeper, diag_rom, cpu_running;
+wire        sh_we, sh_page7, screen7, beeper, diag_rom, cpu_running, cen_tgl;
+wire        l_tape_on, l_tape_lvl, l_turbo;
 wire [12:0] sh_addr;
 wire [7:0]  sh_data;
 wire [2:0]  border;
@@ -177,14 +224,17 @@ wire [2:0]  border;
 zx_bus u_bus (
     .clk         (clk),
     .rst_n       (rst_n),
-    .run         (ld_done),
-    .turbo       (!turbo_n),
-    .diag_key    (!key1_n),
+    .run         (ld_done & kbd_ready),
+    .turbo       (!turbo_n | l_turbo),
+    .diag_key    (kb_f1),
     .vid50       (mode50),
     .vsync_n     (vga_vs),
     .kb_rows     (kb_rows),
     .joy         (~joy_n),
     .tape_in     (tape_in),
+    .ltape_on    (l_tape_on),
+    .ltape_lvl   (l_tape_lvl),
+    .cen_tgl     (cen_tgl),
     .sd_req      (bus_req),
     .sd_we       (bus_we),
     .sd_addr     (bus_addr),
@@ -209,9 +259,35 @@ zx_bus u_bus (
 assign audio_beeper = beeper;
 
 //-----------------------------------------------------------------------------
+// SD card tape loader (56 MHz)
+//-----------------------------------------------------------------------------
+wire       osd_we;
+wire [9:0] osd_addr;
+wire [7:0] osd_data;
+
+tape_loader #(.FW0(FW0), .FW1(FW1), .FW2(FW2), .FW3(FW3)) u_tape (
+    .clk        (clk56),
+    .rst_n      (rst56_n),
+    .keys       (lkeys),
+    .cen_tgl    (cen_tgl),
+    .sd_cs_n    (sdc_cs_n),
+    .sd_sck     (sdc_sck),
+    .sd_mosi    (sdc_mosi),
+    .sd_miso    (sdc_miso),
+    .tape_on    (l_tape_on),
+    .tape_turbo (l_turbo),
+    .tape_lvl   (l_tape_lvl),
+    .osd_on     (l_osd_on),
+    .osd_full   (l_osd_full),
+    .osd_we     (osd_we),
+    .osd_addr   (osd_addr),
+    .osd_data   (osd_data)
+);
+
+//-----------------------------------------------------------------------------
 // Video
 //-----------------------------------------------------------------------------
-zx_video u_video (
+zx_video #(.FONT_HEX(FONT_HEX)) u_video (
     .pclk      (pclk),
     .prst_n    (prst_n),
     .mode50    (mode50),
@@ -222,6 +298,12 @@ zx_video u_video (
     .sh_page7  (sh_page7),
     .sh_addr   (sh_addr),
     .sh_data   (sh_data),
+    .osd_wclk  (clk56),
+    .osd_we    (osd_we),
+    .osd_waddr (osd_addr),
+    .osd_wdata (osd_data),
+    .osd_on    (l_osd_on),
+    .osd_full  (l_osd_full),
     .vga_r     (vga_r),
     .vga_r_low (vga_r_low),
     .vga_g     (vga_g),
@@ -239,7 +321,7 @@ reg [22:0] blink;
 reg [2:0]  turbo_s;
 always @(posedge clk) begin
     blink   <= blink + 23'd1;
-    turbo_s <= {turbo_s[1:0], !turbo_n};
+    turbo_s <= {turbo_s[1:0], !turbo_n | l_turbo};
     led     <= bad_image ? blink[22] : !turbo_s[2];
 end
 

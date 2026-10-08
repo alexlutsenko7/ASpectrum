@@ -1,5 +1,6 @@
 // sys_pll -- 50 MHz in; c0 = 112 MHz system clock (50 * 56 / 25 = 4 x 28 MHz),
-//            c1 = 112 MHz delayed by SD_PHASE_PS, drives the SDRAM clock DDIO
+//            c1 = 112 MHz delayed by SD_PHASE_PS, drives the SDRAM clock DDIO,
+//            c2 = 56 MHz (50 * 28 / 25), rising edges aligned with c0: SD tape loader
 `default_nettype none
 
 module sys_pll #(
@@ -8,12 +9,14 @@ module sys_pll #(
     input  wire inclk0,
     output wire c0,
     output wire c1,
+    output wire c2,
     output wire locked
 );
 
 wire [4:0] clk_bus;
 assign c0 = clk_bus[0];
 assign c1 = clk_bus[1];
+assign c2 = clk_bus[2];
 
 altpll altpll_component (
     .areset (1'b0),
@@ -31,6 +34,10 @@ defparam
     altpll_component.clk1_duty_cycle         = 50,
     altpll_component.clk1_multiply_by        = 56,
     altpll_component.clk1_phase_shift        = SD_PHASE_PS,
+    altpll_component.clk2_divide_by          = 25,
+    altpll_component.clk2_duty_cycle         = 50,
+    altpll_component.clk2_multiply_by        = 28,
+    altpll_component.clk2_phase_shift        = "0",
     altpll_component.compensate_clock        = "CLK0",
     altpll_component.inclk0_input_frequency  = 20000,
     altpll_component.intended_device_family  = "Cyclone IV E",
@@ -65,7 +72,7 @@ defparam
     altpll_component.port_scanwrite          = "PORT_UNUSED",
     altpll_component.port_clk0               = "PORT_USED",
     altpll_component.port_clk1               = "PORT_USED",
-    altpll_component.port_clk2               = "PORT_UNUSED",
+    altpll_component.port_clk2               = "PORT_USED",
     altpll_component.port_clk3               = "PORT_UNUSED",
     altpll_component.port_clk4               = "PORT_UNUSED",
     altpll_component.port_clk5               = "PORT_UNUSED",

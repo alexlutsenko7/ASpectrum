@@ -15,6 +15,18 @@
 // rows: 8 x 5 bits, active low; row i is selected by A(8+i):
 //   0 CAPS Z X C V   1 A S D F G   2 Q W E R T   3 1 2 3 4 5
 //   4 0 9 8 7 6      5 P O I U Y   6 ENT L K J H 7 SPC SYM M N B
+//
+// Machine and loader keys (docs/SD_TAPE_LOADER.md):
+//   lkeys (1 = held, read by the tape loader CPU, fw/hw.h K_*):
+//     0 F12 / keypad / / NumLock   1 keypad 8 / F9 / Up      2 keypad 2 / F10 / Down
+//     3 keypad 4 / Left            4 keypad 6 / Right        5 keypad Enter / Enter
+//     6 F11   7 keypad 5   8 keypad -   9 Esc / Backspace   10 F7 / keypad *
+//   f1      F1 held (DiagROM when the CPU starts)
+//   f8_tgl  toggles on every F8 press (50/60 Hz video)
+//   cad     Ctrl + Alt + Del held (machine reset)
+//   seen    a complete packet has arrived since power-up
+//   block   (asynchronous) the OSD browser is open: all Spectrum keys released
+// Reset by power-on only, so F1 is still known after a KEY0 / Ctrl+Alt+Del reset.
 //=============================================================================
 `default_nettype none
 
@@ -25,7 +37,13 @@ module zx_keyboard #(
     input  wire        clk,
     input  wire        rst_n,
     input  wire        rx,              // asynchronous
-    output reg  [39:0] rows
+    input  wire        block,           // asynchronous: release all Spectrum keys
+    output reg  [39:0] rows,
+    output reg  [10:0] lkeys,
+    output reg         f1,
+    output reg         f8_tgl,
+    output reg         cad,
+    output reg         seen
 );
 
 //-----------------------------------------------------------------------------
@@ -122,17 +140,35 @@ endfunction
 //-----------------------------------------------------------------------------
 // Packet parser
 //-----------------------------------------------------------------------------
-reg [3:0] idx;
-reg [7:0] mods, k1, k2, k3;
+reg [3:0]  idx;
+reg [7:0]  mods, k1, k2, k3;
+reg [39:0] zx_rows;
+reg        f8_held;
+reg [1:0]  block_s;
+
+function has(input [7:0] code);
+    has = (k1 == code) || (k2 == code) || (k3 == code);
+endfunction
+
+always @(posedge clk) begin
+    block_s <= {block_s[0], block};
+    rows    <= block_s[1] ? {40{1'b1}} : zx_rows;
+end
 
 always @(posedge clk or negedge rst_n)
     if (!rst_n) begin
-        idx  <= 4'd0;
-        mods <= 8'd0;
-        k1   <= 8'd0;
-        k2   <= 8'd0;
-        k3   <= 8'd0;
-        rows <= {40{1'b1}};
+        idx     <= 4'd0;
+        mods    <= 8'd0;
+        k1      <= 8'd0;
+        k2      <= 8'd0;
+        k3      <= 8'd0;
+        zx_rows <= {40{1'b1}};
+        lkeys   <= 11'd0;
+        f1      <= 1'b0;
+        f8_tgl  <= 1'b0;
+        f8_held <= 1'b0;
+        cad     <= 1'b0;
+        seen    <= 1'b0;
     end else if (byte_ok) begin
         if (rx_byte == 8'h57 || rx_byte == 8'hAB || rx_byte == 8'h82 || rx_byte == 8'hA3)
             idx <= 4'd0;
@@ -143,9 +179,25 @@ always @(posedge clk or negedge rst_n)
                 4'd6: k2   <= rx_byte;
                 4'd7: k3   <= rx_byte;
                 4'd8: begin
-                    rows <= ~(one_key(k1) | one_key(k2) | one_key(k3) |
-                              {39'd0, mods[1]} |                              // Left Shift  -> CAPS (bit 0)
-                              ({39'd0, mods[5] | mods[0] | mods[4]} << 36));  // RShift/Ctrl -> SYM (bit 36)
+                    zx_rows <= ~(one_key(k1) | one_key(k2) | one_key(k3) |
+                                 {39'd0, mods[1]} |                              // Left Shift  -> CAPS (bit 0)
+                                 ({39'd0, mods[5] | mods[0] | mods[4]} << 36));  // RShift/Ctrl -> SYM (bit 36)
+                    lkeys <= {has(8'h40) | has(8'h55),                  // 10 F7 / keypad *
+                              has(8'h29) | has(8'h2A),                  // 9 Esc / Backspace
+                              has(8'h56),                               // 8 keypad -
+                              has(8'h5D),                               // 7 keypad 5
+                              has(8'h44),                               // 6 F11
+                              has(8'h58) | has(8'h28),                  // 5 keypad Enter / Enter
+                              has(8'h5E) | has(8'h4F),                  // 4 keypad 6 / Right
+                              has(8'h5C) | has(8'h50),                  // 3 keypad 4 / Left
+                              has(8'h5A) | has(8'h43) | has(8'h51),     // 2 keypad 2 / F10 / Down
+                              has(8'h60) | has(8'h42) | has(8'h52),     // 1 keypad 8 / F9 / Up
+                              has(8'h45) | has(8'h54) | has(8'h53)};    // 0 F12 / keypad / / NumLock
+                    f1      <= has(8'h3A);
+                    f8_held <= has(8'h41);
+                    if (has(8'h41) && !f8_held) f8_tgl <= !f8_tgl;
+                    cad     <= has(8'h4C) && (mods[0] | mods[4]) && (mods[2] | mods[6]);
+                    seen    <= 1'b1;
                 end
                 default: ;
             endcase

@@ -6,6 +6,7 @@ derive_clock_uncertainty
 
 set clk     u_pll|altpll_component|auto_generated|pll1|clk[0]
 set clk_sd  u_pll|altpll_component|auto_generated|pll1|clk[1]
+set clk56   u_pll|altpll_component|auto_generated|pll1|clk[2]
 set clk25   u_vpll|altpll_component|auto_generated|pll1|clk[0]
 set clk27   u_vpll|altpll_component|auto_generated|pll1|clk[1]
 
@@ -33,11 +34,13 @@ set_false_path -to [get_ports DRAM_CKE]
 set_clock_groups -physically_exclusive -group [get_clocks $clk25] -group [get_clocks $clk27]
 
 # 50 MHz control, 112 MHz system and pixel clocks are asynchronous to each other:
-# every crossing is synchronised (border, screen select, vsync, video mode) or a
-# dual-clock block RAM (screen shadows).
+# every crossing is synchronised (border, screen select, vsync, video mode, OSD on,
+# F8 toggle) or a dual-clock block RAM (screen shadows, OSD text).
+# The 56 MHz tape loader clock comes from the same PLL as the 112 MHz system clock
+# with aligned edges: the crossings between them are timed normally.
 set_clock_groups -asynchronous \
     -group [get_clocks CLOCK_50] \
-    -group [get_clocks [list $clk $clk_sd sdram_clk]] \
+    -group [get_clocks [list $clk $clk_sd sdram_clk $clk56]] \
     -group [get_clocks [list $clk25 $clk27]]
 
 #------------------------------------------------------------------------------
@@ -54,9 +57,23 @@ set_multicycle_path -from [get_registers {*u_bus|cpu_t80:u_cpu|*}] -to [get_regi
 set_multicycle_path -from [get_registers {*u_bus|cpu_t80:u_cpu|*}] -to [get_registers {*u_bus|smp_*}] -hold 1
 
 #------------------------------------------------------------------------------
+# SDRAM port owner switch (zx_system: ld_done ? bus : loader). rom_loader.done rises
+# once, one clock after the ack of its last (posted) write, and the CPU cannot issue a
+# request before done (run = done & kbd_ready): both requesters are idle when the
+# multiplexer switches, so these paths have two clocks.
+set_multicycle_path -from [get_registers {*u_loader|done}] -to [get_registers {*u_ram|*}] -setup 2
+set_multicycle_path -from [get_registers {*u_loader|done}] -to [get_registers {*u_ram|*}] -hold 1
+
+#------------------------------------------------------------------------------
 # Board I/O: asynchronous or not timing-critical
 #------------------------------------------------------------------------------
-set_false_path -from [get_ports {RESET_N KEY1 SW_50_60 TAPE_IN TURBO_N KBD_A KBD_B GND_TIE[*] JOY_*}]
+set_false_path -from [get_ports {RESET_N SW_50_60 TAPE_IN TURBO_N KBD_A KBD_B GND_TIE[*] JOY_*}]
+
+# SD card SPI (tape_loader): SCK <= 14 MHz = 4 x 56 MHz clocks per period; MOSI changes
+# half a period before the rising edge, MISO is taken a whole period after the card
+# changed it, by design
+set_false_path -to   [get_ports {SD_CS_N SD_SCK SD_MOSI}]
+set_false_path -from [get_ports {SD_MISO}]
 set_false_path -to   [get_ports {VGA_R VGA_R_LOW VGA_G VGA_G_LOW VGA_B VGA_B_LOW VGA_HSYNC VGA_VSYNC AUDIO_AY AUDIO_BEEPER LEDR}]
 
 # Configuration flash (ASMI block pins): SPI at clk / 8 = 14 MHz, MOSI changes in the low
