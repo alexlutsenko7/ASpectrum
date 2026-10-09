@@ -281,7 +281,7 @@ C.push(table([3100, 6260], ["Test", "What it shows"], [
   ["sim/run_float_sim.sh", "zx_bus + T80 + SDRAM: 6,000 IN A,(FF) against a reference of the 128K floating bus (incl. contended port addresses); all FF with it switched off"],
   ["sim/run_snapsys_sim.sh", "Whole machine with the firmware: F2, a typed name, the snapshot written to the SD card model, F12 + Enter loads it back; loaded state equals the saved state; the file is checked by the independent decoder"],
   ["DDR_TEST, VGA_TEST", "Earlier stand-alone projects that proved the SDRAM controller and the video modes on the hardware"],
-  ["Hardware", "128K boots and runs (6 October); games load from the SD card in turbo and at normal speed, saving to the card works (8 October); 60 Hz start, contention and the 50 Hz border alignment confirmed with Aquaplane, floating bus confirmed with Sidewize (9 October)"],
+  ["Hardware", "128K boots and runs (6 October); games load from the SD card in turbo and at normal speed, saving to the card works (8 October); 60 Hz start, contention and the 50 Hz border alignment confirmed with Aquaplane, floating bus confirmed with Sidewize, snapshots save and load (9 October)"],
 ]));
 
 // ---------------------------------------------------------------- 13

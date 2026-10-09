@@ -203,7 +203,7 @@ Open (user's decision): how the adapter physically connects to the Cyclone IV bo
   reserve 1.25 KB (measured ~0.75 KB), browser 400 -> 350 entries. Build: 9,020 LEs, worst setup +0.51 ns.
   Tests: PC host test (reference files + round trips, independent decoder), tb_snap (random freezes / restores vs an
   undisturbed run, turbo and normal speed), whole-machine F2-save / F12-load simulation with the firmware.
-  Not yet tried on hardware.
+  Works on hardware (user, 2026-10-09).
 - Aquaplane horizon confirmed on hardware at frame INT 24.1 (line 24, pixel 166) with Level-1 contention: the default.
 - Open: a 50 Hz mode for the user's worst TV (rejects 576p50 on VGA). Waiting for its VGA (analog) EDID from MonInfo.
   Analysis so far: 1080p50 is possible on analog VGA at 29.7 MHz (1 clock per Spectrum pixel = 5 screen pixels,

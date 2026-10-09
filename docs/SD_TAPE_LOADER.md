@@ -5,7 +5,7 @@ switch (F6) all work on hardware** (user). PC tests and RTL simulations pass; Qu
 
 2026-10-09: **snapshots** added (F2 saves the whole machine as a `.z80`, the browser loads `.z80` files; see
 "Snapshots" below). The browser limit went from 400 to **350 entries** per folder to make room in the 32 KB loader
-RAM. PC tests and RTL simulations pass; not yet tried on hardware.
+RAM. PC tests and RTL simulations pass; works on hardware (user, 2026-10-09).
 
 Replaces the user's external loader (small MCU + 2 buttons + LCD, PC-preprocessed TAP format, pulls TURBO_N low
 while playing at 8x). The loader lives inside the FPGA and plays **unmodified .tap and .tzx** files from an SD card,
