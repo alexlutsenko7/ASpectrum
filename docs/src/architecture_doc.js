@@ -50,7 +50,7 @@ const C = [];
 // ---------------------------------------------------------------- title
 C.push(new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: "ASpectrum", bold: true, size: 52, font: FONT, color: "1F3864" })] }));
 C.push(new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: "Architecture of the ZX Spectrum 128K on the QMTECH Cyclone IV board", size: 28, font: FONT, color: "2F5496" })] }));
-C.push(new Paragraph({ spacing: { after: 300 }, children: [new TextRun({ text: "Design state of 8 October 2026: the 128K machine (on hardware since 6 October) and the SD card tape loader with saving", size: 20, font: FONT, color: "595959" })] }));
+C.push(new Paragraph({ spacing: { after: 300 }, children: [new TextRun({ text: "Design state of 9 October 2026: the 128K machine (on hardware since 6 October), the SD card tape loader with saving, .z80 snapshots and memory contention", size: 20, font: FONT, color: "595959" })] }));
 C.push(new TableOfContents("Contents", { hyperlink: true, headingStyleRange: "1-2" }));
 C.push(new Paragraph({ children: [new PageBreak()] }));
 
@@ -60,15 +60,15 @@ C.push(p("ASpectrum is a ZX Spectrum 128K built in an Intel/Altera Cyclone IV E 
 C.push(b("**All memory in SDRAM.** The 128 KB of RAM and the ROMs live in the board's 32 MB SDR SDRAM; only the screen is mirrored in block RAM for the video. This keeps the design small enough for smaller FPGAs."));
 C.push(b("**One system clock, no clock multiplexers.** Everything that belongs to the Spectrum runs at 112 MHz; the Z80 is stepped by a clock enable, at the real 3.5469 MHz or at 28 MHz (turbo, 8x)."));
 C.push(b("**Fully constrained timing.** Every clock and every I/O has constraints, and the build closes timing at all corners (the DE10 reference had none)."));
-C.push(p("Added on top: an **SD card tape loader** that plays unmodified .tap and .tzx files in turbo and **saves** the Spectrum's SAVE output as .tap files, controlled from on-screen dialogs, and USB-keyboard machine keys (DiagROM, 50/60 Hz, reset)."));
+C.push(p("Added on top: an **SD card tape loader** that plays unmodified .tap and .tzx files in turbo and **saves** the Spectrum's SAVE output as .tap files, **.z80 snapshots** (F2 saves the whole machine at any moment, the browser loads them), controlled from on-screen dialogs, and USB-keyboard machine keys (DiagROM, 50/60 Hz, reset)."));
 C.push(table([3000, 6360], ["Item", "Value"], [
   ["FPGA", "EP4CE15F23C8 (15,408 logic elements, 56 M9K block RAMs, 4 PLLs)"],
   ["Board", "QMTECH Cyclone IV core board: 50 MHz oscillator, W9825G6KH-6 SDRAM (32 MB, 16 bit), W25Q64 configuration flash, 2 buttons, 1 LED"],
   ["I/O board", "User's QM_Atrix adapter: VGA (2 bits per colour), AY + beeper audio to an amplifier module, Kempston DB9, USB keyboard module (UART), tape in, turbo input, 50/60 switch; plus an Adafruit microSD BFF for the tape loader"],
   ["CPU", "T80 (Z80, VHDL, from the MiSTer ZX Spectrum core), 3.5469 MHz or 28 MHz"],
   ["Tape loader CPU", "PicoRV32 (RISC-V RV32IMC), 56 MHz, 32 KB block RAM, firmware in C"],
-  ["Resources used", "8,379 logic elements (54 %), 55 of 56 M9K, 2 PLLs, 72 pins"],
-  ["Timing", "worst setup slack +0.47 ns (112 MHz, slow 85 °C corner), +1.87 ns at 56 MHz, no negative slack at any corner, no unconstrained paths"],
+  ["Resources used", "9,233 logic elements (60 %), 55 of 56 M9K, 2 PLLs, 71 pins"],
+  ["Timing", "worst setup slack +0.52 ns (112 MHz, slow 85 °C corner), worst hold +0.15 ns, no negative slack at any corner, no unconstrained paths"],
   ["Tools", "Quartus Prime 25.1std Lite, Questa FSE, xPack riscv-none-elf-gcc 15.2"],
 ]));
 
@@ -86,14 +86,14 @@ C.push(table([2300, 2060, 5000], ["Module (rtl/)", "Clock", "Role"], [
   ["`zx_video.v`, `vga_timing.v`", "25 / 27 MHz", "Spectrum picture from the screen shadows, borders, FLASH, OSD overlay"],
   ["`zx_keyboard.v`", "112 MHz", "USB keyboard packets to the Spectrum key matrix, loader keys, machine keys"],
   ["`jt49/`, `sd_dac.v`", "112 MHz", "AY-3-8912 sound chip and its 1-bit audio DAC"],
-  ["`tape_loader.v` + `picorv32/`", "56 MHz", "SD card tape loader: RISC-V CPU, RAM, SPI, command FIFO, pulse player, recorder (saving)"],
+  ["`tape_loader.v` + `picorv32/`", "56 MHz", "SD card tape loader: RISC-V CPU, RAM, SPI, command FIFO, pulse player, recorder (saving), snapshot port"],
   ["`sys_pll.v`, `vga_pll.v`, `vga_clkmux.v`", "-", "PLLs and the glitch-free pixel clock switch"],
 ]));
 
 // ---------------------------------------------------------------- 3
 C.push(h1("3. Clocks and resets"));
 C.push(table([2100, 2700, 4560], ["Clock", "Source", "Used by"], [
-  ["50 MHz", "board oscillator", "PLL inputs; video mode switch sequencer and 50/60 switch debounce"],
+  ["50 MHz", "board oscillator", "PLL inputs; video mode switch sequencer"],
   ["112 MHz (c0)", "sys_pll: 50 x 56 / 25", "System: SDRAM controller, CPU + bridge, AY, keyboard, ROM loader"],
   ["112 MHz delayed (c1)", "sys_pll, +1.34 ns", "SDRAM clock, forwarded inverted through a DDIO output"],
   ["56 MHz (c2)", "sys_pll: 50 x 28 / 25", "Tape loader; rising edges aligned with c0, so crossings are ordinary timed paths"],
@@ -112,6 +112,8 @@ C.push(p("The Z80 is the T80 core, copied unchanged from the MiSTer ZX Spectrum 
 C.push(b("**CEN generator:** a 32-bit phase accumulator at 112 MHz. Normal speed adds 136,016,246 per clock, giving exactly 3.5469 MHz on average (31-32 clocks per T-state, the 128K's frequency). Turbo adds 2^30, giving exactly 28 MHz (one T-state every 4 clocks). Switching is glitch-free at any time."));
 C.push(b("**Turbo sources:** the TURBO_N pin (external tape simulator, active low) or the SD tape loader while it plays or saves a block; F6 switches the loader to normal speed."));
 C.push(b("**Hold:** the tape loader can stop the CEN (like a memory wait) while it needs time during a save; the Spectrum does not notice, because its T-states stop too."));
+C.push(b("**Snapshot freeze:** the tape loader can stop the CEN at an instruction boundary (section 9.5)."));
+C.push(b("**Memory contention (Level 1, 128K timing):** a frame T-state counter restarts at each interrupt and counts real T-states. At the start of each memory cycle to 4000-7FFF (or to C000-FFFF while an odd RAM page is paged in), and in the I/O patterns of the 128K, the CEN is withheld by 6, 5, 4, 3, 2, 1, 0, 0 T-states during the 128 contended T-states of each of the 192 picture lines (from T-state 14,361). Those T-states are lost, as on the real machine, and the tape player counts them too. Off in turbo; F5 switches it off. Not emulated: the internal contended T-states of some instructions, the floating bus."));
 C.push(b("**Stall:** if a memory read is not finished when the CPU needs its data, the CEN pulse is held back (\"owed\") and given as soon as the data is there. At normal speed this never happens (the SDRAM is always fast enough); in turbo it costs a clock now and then."));
 C.push(b("**Timing constraints:** CEN pulses are never closer than 4 clocks, so paths inside the T80 get a 4-clock multicycle (the T80 alone reaches 63.5 MHz on this chip, so 4 x 8.9 ns is ample)."));
 
@@ -165,7 +167,7 @@ C.push(table([2000, 2400, 2200, 2760], ["Mode", "Timing", "Pixel clock", "Pictur
 ]));
 C.push(gap());
 C.push(b("Each Spectrum pixel is 2 x 2 VGA pixels. Bitmap and attribute bytes are fetched 4 pixels ahead; FLASH swaps ink and paper every 16 frames; BRIGHT drives the low DAC bit."));
-C.push(b("The mode comes from the S1 switch (50 Hz when unwired) and is swapped with F8; it is kept across resets."));
+C.push(b("Power-up mode is 60 Hz (640x480, accepted by every monitor; 576p50 is not); F8 swaps it, and the choice is kept across resets. The adapter's 50/60 switch is not read."));
 C.push(b("**OSD:** 32 x 24 characters exactly over the Spectrum picture, using the Spectrum's own character set (taken from the 48K ROM), white on blue; bit 7 of a character means inverse video. It can cover the whole picture (browser) or only the bottom row (status). It uses the same 4-pixel-ahead fetch: text RAM, then font ROM."));
 
 // ---------------------------------------------------------------- 7
@@ -186,14 +188,16 @@ C.push(table([2600, 6760], ["Port", "Function"], [
 C.push(gap());
 C.push(p("**EAR (bit 6)** comes from, in order of priority: the SD tape loader while it plays; the TAPE_IN pin for 75 ms after each edge on it; otherwise the beeper bit (as on the real machine)."));
 C.push(h2("7.3 Interrupt"));
-C.push(p("The 32-T-state interrupt comes from the VGA vertical sync in 50 Hz mode (a true 50.00 Hz frame), and from a 70,908-T-state counter (the 128K frame) in 60 Hz mode; the counter follows turbo."));
+C.push(p("The 32-T-state interrupt comes from the video in 50 Hz mode (a true 50.00 Hz frame) and from a 70,908-T-state counter (the 128K frame) in 60 Hz mode; the counter follows turbo."));
+C.push(b("In 50 Hz mode the interrupt fires at a set point of the VGA frame, so that border effects line up with the picture: VGA line 24, pixel 166 after the start of vsync, measured with Aquaplane's horizon stripe. Page Up / Page Down (browser closed) move it in 1/8-line steps. Calculated for a real 128K it would be line 12.7; the difference is most likely the contention that is not emulated (Level 2)."));
+C.push(b("In 60 Hz mode the picture is not locked to the Spectrum frame (59.5 Hz video, 50 Hz interrupts), so border effects cannot line up."));
 
 // ---------------------------------------------------------------- 8
 C.push(h1("8. Keyboard and controls"));
 C.push(p("A USB keyboard is attached through a CH9350-style module that sends HID reports over a 115,200-baud UART. `zx_keyboard.v` decodes the modifier byte and the first three key codes of each report into the 8 x 5 Spectrum key matrix, plus extras:"));
 C.push(b("PC keys mapped to Spectrum combinations: Backspace = DELETE, arrows = cursor keys, Esc = BREAK, Left Shift = CAPS SHIFT, Right Shift / Ctrl = SYMBOL SHIFT."));
 C.push(b("**Machine keys** handled in hardware: F1 held at start (DiagROM), F8 (50/60 Hz), Ctrl+Alt+Del (machine reset)."));
-C.push(b("**Loader keys** passed to the tape loader CPU as a bit vector: F12 / numpad keys / arrows / Enter / Esc / F6 (speed) / F7 (stop) / F9-F11; plus the raw keyboard report for typing file names."));
+C.push(b("**Loader keys** passed to the tape loader CPU as a bit vector: F12 / numpad keys / arrows / Enter / Esc / F2 (snapshot) / F5 (contention) / F6 (speed) / F7 (stop) / F9-F11 / Page Up / Page Down (browser paging, or the 50 Hz interrupt position); plus the raw keyboard report for typing file names."));
 C.push(b("While the browser is open the Spectrum's key matrix is released, so it sees no keys."));
 C.push(p("The complete key list with usage cases is in the separate document ASpectrum_Keys.docx. Board buttons: KEY0 resets everything; KEY1 is not used."));
 
@@ -222,11 +226,20 @@ C.push(h2("9.3 Firmware (fw/, C)"));
 C.push(b("**SD driver:** SPI-mode initialisation and single-block reads for SD, SDHC and SDXC cards."));
 C.push(b("**FAT16/FAT32:** with or without a partition table, long file names, fragmented files, seeking."));
 C.push(b("**TAP and TZX:** TZX blocks 10, 11, 12, 13, 14, 15, 20 and 2B are played; 21-27 (groups, jumps, loops, calls) are followed; 18, 19, 28, 2A and information blocks are skipped."));
-C.push(b("**Browser and control:** sorted folder lists (up to 400 entries) on the OSD, keys with auto-repeat, pause, back one block, stop, turbo/normal speed (F6), and \"stop the tape\" blocks for multi-load games."));
+C.push(b("**Browser and control:** sorted folder lists (up to 350 entries) on the OSD, keys with auto-repeat, pause, back one block, stop, turbo/normal speed (F6), and \"stop the tape\" blocks for multi-load games."));
 C.push(b("**Saving:** recording mode, ROM-format decoder (pilot, sync, bits), 8.3 name typed on the USB keyboard, FAT writing (free clusters, both FAT copies, directory entries, growing folders, deleting an empty file), SD block writes."));
-C.push(p("The firmware is 12.6 KB of code plus about 17 KB of data; all variables are cleared at start, because a reset does not reload the RAM image."));
+C.push(b("**Snapshots:** .z80 version 3 writer (pages compressed in two passes: length, then data) and a loader for versions 1-3, 48K and 128K, that checks the whole file before changing anything."));
+C.push(p("The firmware is 15.7 KB of code plus 15.3 KB of data (built with shared prologue/epilogue code, -msave-restore); all variables are cleared at start, because a reset does not reload the RAM image. The browser limit went from 400 to 350 entries to make room for the snapshot code."));
 C.push(h2("9.4 Saving"));
 C.push(p("Saving is a recording mode, started from the browser (first line [Save to this folder], then an 8.3 name) and stopped with F12. Meanwhile every ROM-format block the Spectrum saves is decoded from MIC and appended to that one .tap file; a block needs 64 pilot pulses, so MIC clicks for sound are ignored, and turbo is switched on only while a block is being saved. TAP block lengths are written as 0 first and patched when a block ends. Each bit is decided by its first pulse, because the ROM does not always end a block with an edge. An empty recording removes its file."));
+
+C.push(h2("9.5 Snapshots"));
+C.push(p("F2 saves the whole machine as a .z80 file (version 3, 128K): the 8 RAM pages, every CPU register, port 7FFD, border, the AY registers and its register select. Choosing a .z80 file in the browser loads it (versions 1-3; 48K snapshots run in 48K mode with 7FFD = 30h)."));
+C.push(b("**Freeze at an instruction boundary** (zx_bus): the CEN stops in T2 of an opcode fetch that is not an interrupt acknowledge and does not follow a CB/ED/DD/FD prefix (tracked from the fetched opcodes). There the T80 has written back the previous instruction (at T1) and not yet taken the opcode or incremented PC and R, so its registers are the state between two instructions. In HALT the PC is already past the HALT: the firmware saves PC - 1."));
+C.push(b("**Registers** are read from the T80's REG output; loading resets the T80 alone and loads every register at once through its DIRSet/DIR port (the MiSTer way), then the CPU starts a fresh opcode fetch at the saved PC."));
+C.push(b("**Command port** (loader to zx_bus, request toggle + acknowledge): SDRAM byte read / write (writes also update the screen shadows), register word read, register word write + LOAD, AY register read / write / select, ports (7FFD, border), state (HALT, AY select, ports)."));
+C.push(b("**Unfreeze:** the opcode read of the stopped M1 is repeated (the loader's SDRAM reads changed the data bus), so the program continues as if nothing happened; T-states stopped too, so a playing tape stays in step."));
+C.push(b("Not saved: the position inside the video frame; after a load the next interrupt comes at a different point of the frame (the T80's reset state also costs one T-state)."));
 
 // ---------------------------------------------------------------- 10
 C.push(h1("10. Pins"));
@@ -242,7 +255,6 @@ C.push(table([2500, 1500, 5360], ["Signal", "FPGA pin", "Where"], [
   ["GND_TIE[1:0]", "AA17 / AB17", "tied to ground by the adapter: inputs only"],
   ["AUDIO_AY / AUDIO_BEEPER", "J1 / J2", "adapter J1 wired to U7.15 / U7.16"],
   ["JOY_UP/DOWN/LEFT/RIGHT/FIRE_N", "C1 C2 B1 B2 B3", "adapter J1 wired to U7.23-27 (pull-ups)"],
-  ["SW_50_60", "D2", "adapter J1 wired to U7.22 (pull-up = 50 Hz)"],
   ["SD_MOSI / MISO / SCK / CS_N", "AA13 / AA14 / AA15 / AA16", "Adafruit microSD BFF on U8.7 / 9 / 11 / 13"],
 ]));
 C.push(gap());
@@ -262,17 +274,20 @@ C.push(table([3100, 6260], ["Test", "What it shows"], [
   ["sim/run_sim.sh", "Whole machine with the real ROMs: flash model, ROM loader, SDRAM model with timing checks, T80 boots the 128K ROM to its menu (and DiagROM with F1)"],
   ["sim/run_loader_sim.sh", "Tape loader with an SD card model: firmware boots, browser shown, a TZX with every block type is played T-state exact against the reference; stop block, continue, Stop key; recording started from the browser, a ROM-style save with the CPU hold, F12, file checked on the card image"],
   ["sim/run_tapeload_sim.sh", "Whole machine: the 128K \"Tape Loader\" loads and runs a BASIC program from the SD card image through the player (result pending at the time of writing)"],
-  ["fw/test/run_host_test.sh", "Firmware on the PC against generated FAT16/FAT32 card images (fragmented files, long names): every listing and every TAP/TZX signal compared with an independent Python reference; recordings of real TAP files (noise, headerless, several saves, 1 s pauses in turbo, empty) written and checked by an independent FAT checker"],
+  ["fw/test/run_host_test.sh", "Firmware on the PC against generated FAT16/FAT32 card images (fragmented files, long names): every listing and every TAP/TZX signal compared with an independent Python reference; recordings of real TAP files (noise, headerless, several saves, 1 s pauses in turbo, empty) written and checked by an independent FAT checker; snapshots: reference .z80 files (versions 1-3, 48K/128K, stored pages, bad files) loaded into a model of the hardware, and save + reload round trips checked by an independent .z80 decoder"],
+  ["sim/run_snap_sim.sh", "zx_bus + T80 + SDRAM: a Z80 test program (prefixes, DD CB, block instructions, EXX, IM 2, HALT, paging, AY) run undisturbed, with random freezes and reads, and with random freezes and full restores (LOAD): identical results"],
+  ["sim/run_cont_sim.sh", "zx_bus + T80 + SDRAM: 8,000 NOPs in contended RAM run 57 per line in the border and 41 per picture line (the known Spectrum result), 57 everywhere with contention off"],
+  ["sim/run_snapsys_sim.sh", "Whole machine with the firmware: F2, a typed name, the snapshot written to the SD card model, F12 + Enter loads it back; loaded state equals the saved state; the file is checked by the independent decoder"],
   ["DDR_TEST, VGA_TEST", "Earlier stand-alone projects that proved the SDRAM controller and the video modes on the hardware"],
   ["Hardware", "128K boots and runs (6 October); games load from the SD card in turbo and at normal speed, saving to the card works (8 October)"],
 ]));
 
 // ---------------------------------------------------------------- 13
 C.push(h1("13. Known limitations"));
-C.push(b("No memory contention and no floating bus: timing-critical demos and border effects are not exact (the VGA picture is not locked to the Spectrum frame)."));
+C.push(b("Memory contention only at Level 1 (memory and I/O cycles; not the internal T-states some instructions contend), no floating bus: timing-critical demos are not exact. The 50 Hz interrupt position is tuned (Aquaplane) rather than calculated; other border-effect games may need Page Up / Page Down."));
 C.push(b("The AY output is mono; MIC is not on a pin (saving goes to the SD card only)."));
-C.push(b("Tape loader: TZX generalized data (0x19), CSW (0x18) and the select-block menu (0x28) are not played; text and message blocks are not shown; LOAD \"\" is not typed automatically; at most 400 entries per folder; exFAT cards are not supported."));
-C.push(b("Saving: ROM format only, 8.3 names, no overwrite, no file dates."));
+C.push(b("Tape loader: TZX generalized data (0x19), CSW (0x18) and the select-block menu (0x28) are not played; text and message blocks are not shown; LOAD \"\" is not typed automatically; at most 350 entries per folder; exFAT cards are not supported."));
+C.push(b("Saving: ROM format only, 8.3 names, no overwrite, no file dates. Snapshots: .z80 only (no .sna), no overwrite, the video frame position is not kept."));
 C.push(b("Block RAM: 55 of 56 M9K are used."));
 
 const doc = new Document({

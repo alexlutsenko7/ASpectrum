@@ -1,0 +1,181 @@
+Monitor
+  Model name............... G32qc-30
+  Windows description...... G32qc-30
+  Manufacturer............. Lenovo
+  Plug and Play ID......... LEN66F2
+  Serial number............ UR331DXX-826562648
+  Manufacture date......... 2023, ISO week 39
+  Filter driver............ None
+  -------------------------
+  EDID revision............ 1.3
+  Input signal type........ Digital
+  Color bit depth.......... Undefined
+  Display type............. Undefined
+  Screen size.............. 700 x 390 mm (31.5 in)
+  Power management......... Active off/sleep
+  Extension blocs.......... 1 (CEA/CTA-EXT)
+  -------------------------
+  DDC/CI................... n/a
+
+Color characteristics
+  Default color space...... Non-sRGB
+  Display gamma............ 2.20
+  Red chromaticity......... Rx 0.677 - Ry 0.312
+  Green chromaticity....... Gx 0.273 - Gy 0.639
+  Blue chromaticity........ Bx 0.148 - By 0.078
+  White point (default).... Wx 0.313 - Wy 0.329
+  Additional descriptors... None
+
+Timing characteristics
+  Horizontal scan range.... 30-223kHz
+  Vertical scan range...... 48-144Hz
+  Video bandwidth.......... 600MHz
+  CVT standard............. Not supported
+  GTF standard............. Not supported
+  Additional descriptors... None
+  Preferred timing......... Yes
+  Native/preferred timing.. 2560x1440p at 60Hz (16:9)
+    Modeline............... "2560x1440" 241.500 2560 2608 2640 2720 1440 1443 1448 1481 +hsync +vsync
+
+Standard timings supported
+     720 x  400p at  70Hz - IBM VGA
+     640 x  480p at  60Hz - IBM VGA
+     640 x  480p at  67Hz - Apple Mac II
+     640 x  480p at  72Hz - VESA
+     640 x  480p at  75Hz - VESA
+     800 x  600p at  60Hz - VESA
+     800 x  600p at  72Hz - VESA
+     800 x  600p at  75Hz - VESA
+     832 x  624p at  75Hz - Apple Mac II
+    1024 x  768p at  60Hz - VESA
+    1024 x  768p at  70Hz - VESA
+    1024 x  768p at  75Hz - VESA
+    1280 x 1024p at  75Hz - VESA
+    1280 x 1024p at  60Hz - VESA STD
+    1280 x 1024p at  70Hz - VESA STD
+    1440 x  900p at  60Hz - VESA STD
+    1600 x  900p at  60Hz - VESA STD
+    1680 x 1050p at  60Hz - VESA STD
+    1280 x  720p at 120Hz - VESA STD
+    1920 x 1080p at  60Hz - VESA STD
+    1920 x 1080p at 120Hz - VESA STD
+
+EIA/CEA/CTA-861 Information
+  Revision number.......... 3
+  IT underscan............. Supported
+  Basic audio.............. Supported
+  YCbCr 4:4:4.............. Supported
+  YCbCr 4:2:2.............. Supported
+  Native formats........... 1
+  Detailed timing #1....... 2560x1440p at 72Hz (16:9)
+    Modeline............... "2560x1440" 287.500 2560 2576 2640 2680 1440 1443 1448 1490 +hsync +vsync
+  Detailed timing #2....... 2560x1440p at 60Hz (16:9)
+    Modeline............... "2560x1440" 248.880 2560 2608 2640 2720 1440 1443 1448 1525 +hsync -vsync
+
+CE video identifiers (VICs) - timing/formats supported
+     640 x  480p at  60Hz - Default (4:3, 1:1)
+     720 x  480p at  60Hz - EDTV (16:9, 32:27)
+    1280 x  720p at  60Hz - HDTV (16:9, 1:1)
+     720 x  576p at  50Hz - EDTV (16:9, 64:45)
+    1280 x  720p at  50Hz - HDTV (16:9, 1:1)
+    1280 x  720p at  60Hz - HDTV (16:9, 1:1)
+    1920 x 1080p at  50Hz - HDTV (16:9, 1:1)
+    1920 x 1080p at 120Hz - HDTV (16:9, 1:1)
+    1280 x  720p at 120Hz - HDTV (16:9, 1:1)
+    NB: NTSC refresh rate = (Hz*1000)/1001
+
+CE audio data (formats supported)
+  LPCM    2-channel, 16/20/24 bit depths at 32/44/48 kHz
+
+CE speaker allocation data
+  Channel configuration.... 2.0
+  Front left/right......... Yes
+  Front LFE................ No
+  Front center............. No
+  Rear left/right.......... No
+  Rear center.............. No
+  Front left/right center.. No
+  Rear left/right center... No
+  Rear LFE................. No
+
+CE vendor specific data (VSDB)
+  IEEE registration number. 0x000C03
+  CEC physical address..... 1.0.0.0
+  Supports AI (ACP, ISRC).. No
+  Supports 48bpp........... No
+  Supports 36bpp........... Yes
+  Supports 30bpp........... Yes
+  Supports YCbCr 4:4:4..... Yes
+  Supports dual-link DVI... No
+  Maximum TMDS clock....... 340MHz
+
+CE vendor specific data (VSDB)
+  IEEE registration number. 0xC45DD8
+  CEC physical address..... 0.1.7.8
+  Supports AI (ACP, ISRC).. Yes
+  Supports 48bpp........... No
+  Supports 36bpp........... No
+  Supports 30bpp........... No
+  Supports YCbCr 4:4:4..... No
+  Supports dual-link DVI... No
+  Maximum TMDS clock....... 0MHz
+
+CE vendor specific data (VSDB)
+  IEEE registration number. 0x00001A
+  CEC physical address..... 0.2.0.1
+  Supports AI (ACP, ISRC).. No
+  Supports 48bpp........... No
+  Supports 36bpp........... Yes
+  Supports 30bpp........... Yes
+  Supports YCbCr 4:4:4..... No
+  Supports dual-link DVI... No
+  Maximum TMDS clock....... 720MHz
+  Video latency (p)........ -1ms
+  Audio latency (p)........ -1ms
+  Video latency (i)........ -1ms
+  Audio latency (i)........ -1ms
+  HDMI video capabilities.. Yes
+  EDID screen size......... No additional info
+  3D formats supported..... Not supported
+  Data payload............. 1A000002013090E60000000000
+
+CE colorimetry data
+  xvYCC601 support......... No
+  xvYCC709 support......... No
+  sYCC601 support.......... No
+  AdobeYCC601 support...... No
+  AdobeRGB support......... No
+  BT2020CYCC support....... No
+  BT2020YCC support........ Yes
+  BT2020RGB support........ Yes
+  Metadata profile flags... 0x00
+
+HDR static metadata
+  SDR luminance............ No
+  HDR luminance............ No
+  SMPTE ST2084............. No
+  Hybrid log............... No
+  Data payload............. 060000000000
+
+CE video capability data
+  CE scan behavior......... Always overscanned
+  IT scan behavior......... Always overscanned
+  PT scan behavior......... Always overscanned
+  RGB quantization range... Selectable (via AVI YQ)
+  YCC quantization range... Selectable (via AVI YQ)
+
+Report information
+  Date generated........... 10/9/2026
+  Software revision........ 2.91.0.1043
+  Data source.............. Registry-Active
+  Operating system......... 10.0.26300.2
+
+Raw data
+  00,FF,FF,FF,FF,FF,FF,00,30,AE,F2,66,58,58,44,31,27,21,01,03,80,46,27,78,3A,72,05,AD,4F,46,A3,26,
+  14,50,54,BD,EF,00,81,80,81,8A,95,00,A9,C0,B3,00,81,FC,D1,C0,D1,FC,56,5E,00,A0,A0,A0,29,50,30,20,
+  35,00,B9,88,21,00,00,1E,00,00,00,FF,00,55,52,33,33,31,44,58,58,0A,20,20,20,20,00,00,00,FD,00,30,
+  90,1E,DF,3C,00,0A,20,20,20,20,20,20,00,00,00,FC,00,47,33,32,71,63,2D,33,30,0A,20,20,20,20,01,1E,
+  02,03,42,F1,49,01,03,04,12,13,04,1F,3F,2F,23,09,07,07,83,01,00,00,67,03,0C,00,10,00,38,44,67,D8,
+  5D,C4,01,78,80,00,6D,1A,00,00,02,01,30,90,E6,00,00,00,00,00,E3,05,C0,00,E6,06,00,00,00,00,00,E2,
+  00,D5,4E,70,00,78,A0,A0,32,50,10,40,35,00,B9,88,21,00,00,1E,38,61,00,A0,A0,A0,55,50,30,20,35,00,
+  B9,88,21,00,00,1A,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,11

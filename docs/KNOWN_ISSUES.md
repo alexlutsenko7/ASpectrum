@@ -14,16 +14,25 @@ still worked, whether KEY0 or only a power cycle helped, and what the screen/LED
 
 ## Design limitations (by design or not done yet)
 
-- No memory contention and no floating bus: timing-critical demos and border effects are not exact (the VGA picture
-  is not locked to the Spectrum frame).
+- Memory contention is emulated at Level 1 (2026-10-09: memory and I/O cycles, 128K timing; F5 switches it off);
+  not the internal contended T-states of some instructions (DJNZ, PUSH, INC rr, ...), no floating bus. The 50 Hz
+  frame interrupt sits at VGA line 24, pixel 166, measured with Aquaplane's horizon stripe (calculated for a real
+  128K: line 12.7; the ~11.5 lines between are most likely the missing Level-2 contention). Other border-effect
+  games may need Page Up / Page Down (1/8 line steps, browser closed). In 60 Hz mode border effects cannot line up.
 - AY output is mono; MIC is not output (no tape saving).
 - Tape loader: TZX 0x19 (generalized data), 0x18 (CSW) and 0x28 (select block) are not played; text/message blocks
-  are not shown; `LOAD ""` is not typed automatically; at most 400 entries per folder; long names cut to 27 characters;
+  are not shown; `LOAD ""` is not typed automatically; at most 350 entries per folder; long names cut to 27 characters;
   exFAT cards are not supported (format FAT32).
 - Saving: only the ROM's standard format/speed is decoded (custom turbo savers are not); new files get 8.3 names;
   an existing name is refused (no overwrite); no file dates (no clock); switching off during a save can leave a lost
   cluster (a disk check on the PC fixes it).
 - Block RAM is now 55 of 56 M9K: little room for further block-RAM features.
+- Loader CPU RAM (32 KB) is full since the snapshots (2026-10-09): built with `-msave-restore`, the browser holds 350
+  entries per folder (was 400), ~1.7 KB left for the stack (deepest use measured ~0.75 KB). More firmware features
+  need code savings first (or one more M9K, which would be the last).
+- Snapshots (.z80): the position inside the video frame is not saved (after a load the next interrupt comes at a
+  different point of the frame); no .sna; an existing name is refused (no overwrite); 48K snapshots run on the
+  128's 48 BASIC ROM with paging locked; +3 / Pentagon extras (1FFD, ...) are ignored.
 - Tape loader in turbo: long runs of TZX 0x13 pulse sequences shorter than ~300 T-states could underrun (not seen
   in real files).
 - Turbo stays on until the pause after the last block has played (TZX files with a long final pause keep the game

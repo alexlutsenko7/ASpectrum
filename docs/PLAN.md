@@ -177,8 +177,37 @@ Open (user's decision): how the adapter physically connects to the Cyclone IV bo
   ROM's LD-WAIT needs ~3.5 M T before the leader). Build: 8,379 LEs (54 %), 55/56 M9K, worst slack +0.47 ns.
   Docs: KNOWN_ISSUES.md, ASpectrum_Keys.docx, ASpectrum_Architecture.docx (Letter; generators in docs/src).
 
+- GitHub: https://github.com/alexlutsenko7/ASpectrum.git (user commits from a separate folder). Checked from a fresh
+  clone: complete (T80, sim, fw/test added), firmware rebuilds identical, PC tests + loader sim pass. Cosmetic left:
+  .sh files without the executable flag, 32 leftover files tracked (VGA_TEST/sim/work, transcripts, a log, .qws), no
+  .gitignore. Top-level README.md written (AlteraZX/README.md, to be copied to the repo root).
+- Game sources: archive.org "World of Spectrum June 2017 Mirror" (92.8 GB zip, torrent
+  https://archive.org/download/World_of_Spectrum_June_2017_Mirror/World_of_Spectrum_June_2017_Mirror_archive.torrent);
+  worldofspectrum.net is not wget-able (WordPress pages, files on spectrumcomputing.co.uk); spectrumcomputing.co.uk
+  robots.txt disallows everything except /entry/ -> manual downloads only.
+
 ### Next session
 - Open items: docs/KNOWN_ISSUES.md (SD card once not recognised, keyboard once dead at power-up). Block RAM is
   55/56: further block-RAM features would need the SDRAM (e.g. folder list there).
 - Still to test from v1: keyboard, AY/beeper + joystick (J1 wiring), external tape (TURBO_N).
 - EP4CE6F17 port deprioritised (user, 2026-10-08: too small once the SD loader is in). Possibly: floating bus.
+
+## Session log 2026-10-09
+
+- Video: not all monitors accept 576p50 (user). Power-up mode is now 640x480@60 and only F8 swaps; the S1 switch
+  input (SW_50_60, D2) was removed (pin unused). Build timing clean.
+- Snapshots (user: .z80 format, F2 saves with a typed name, loading through the F12 browser, no quick slots):
+  zx_bus freezes the CPU at an instruction boundary (M1 T2, not INTA, no prefix pending) and offers a command port
+  (SDRAM byte, T80 REG words, DIR + LOAD = T80-only reset + DIRSet, AY, ports, state) to the loader CPU; fw/snap.c
+  writes .z80 v3 (128K, compressed) and loads v1-3 (48K/128K). Loader RAM became full: -msave-restore, stack
+  reserve 1.25 KB (measured ~0.75 KB), browser 400 -> 350 entries. Build: 9,020 LEs, worst setup +0.51 ns.
+  Tests: PC host test (reference files + round trips, independent decoder), tb_snap (random freezes / restores vs an
+  undisturbed run, turbo and normal speed), whole-machine F2-save / F12-load simulation with the firmware.
+  Not yet tried on hardware.
+- Aquaplane horizon confirmed on hardware at frame INT 24.1 (line 24, pixel 166) with Level-1 contention: the default.
+- Open: a 50 Hz mode for the user's worst TV (rejects 576p50 on VGA). Waiting for its VGA (analog) EDID from MonInfo.
+  Analysis so far: 1080p50 is possible on analog VGA at 29.7 MHz (1 clock per Spectrum pixel = 5 screen pixels,
+  528 x 1125 clocks, 56.25 kHz / 50.00 Hz, third PLL, 3rd clkctrl input). Catch: with 5 lines per Spectrum row the
+  TV beam is ~40 % slower than the Spectrum's, so one INT delay aligns border effects at one height only (Aquaplane
+  OK, multi-band / loading stripes drift up to ~8 rows); 3.6 lines per row (4/3 alternating, 691 lines) keeps them
+  exact; a border buffer would decouple them but needs ~3 M9K (1 free). 576p stays the exact mode.

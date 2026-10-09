@@ -48,7 +48,7 @@ const bullet = t => new Paragraph({ numbering: { reference: "bullets", level: 0 
 const gap = () => new Paragraph({ spacing: { after: 60 }, children: [] });
 
 // numbering instances: each procedure restarts at 1
-const procs = ["load", "multi", "rewind", "save", "diag", "reset"];
+const procs = ["load", "multi", "rewind", "save", "snapsave", "snapload", "border", "diag", "reset"];
 const numbering = {
   config: [
     { reference: "bullets", levels: [{ level: 0, format: LevelFormat.BULLET, text: "•", alignment: AlignmentType.LEFT,
@@ -61,7 +61,7 @@ const stepOf = ref => t => new Paragraph({ numbering: { reference: ref, level: 0
 
 const children = [
   new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: "ASpectrum — extra keys", bold: true, size: 40, font: FONT, color: "1F3864" })] }),
-  new Paragraph({ spacing: { after: 240 }, children: [new TextRun({ text: "ZX Spectrum 128K on the QMTECH Cyclone IV board, with the SD card tape loader (build of 8 October 2026)", size: 21, font: FONT, color: "595959" })] }),
+  new Paragraph({ spacing: { after: 240 }, children: [new TextRun({ text: "ZX Spectrum 128K on the QMTECH Cyclone IV board, with the SD card tape loader, snapshots and memory contention (build of 9 October 2026)", size: 21, font: FONT, color: "595959" })] }),
 
   p("All keys below are on the USB keyboard unless a board button is named. Keys that the Spectrum itself uses (letters, digits, Enter, Space, Shift) work as on a real 128K and are listed at the end."),
 
@@ -70,10 +70,17 @@ const children = [
     ["**F1** (held while the Spectrum starts)", "Starts DiagROM (test ROM) instead of the 128K ROM",
       ["Only read at the moment the Spectrum starts: at power-up, after KEY0, or after Ctrl+Alt+Del. Holding F1 later does nothing.",
        "Keep holding F1 until the DiagROM screen appears. See \"Starting the test ROM\" below."]],
+    ["**F2**", "Saves a snapshot of the whole machine as a .z80 file",
+      ["The Spectrum stops at once and asks for a name. See \"Saving and loading snapshots\" below."]],
+    ["**F5**", "Switches memory contention on (default) / off",
+      ["Contention is the slowing of the processor while the screen is drawn, as on a real Spectrum; timing-critical games and border effects need it. Shows \"Contention: on\" or \"off\" for 4 seconds. Back to on after KEY0 or power-up. Never active in turbo."]],
     ["**F6**", "Switches tape loading and saving between turbo (default) and normal speed",
       ["Shows \"Speed: normal\" or \"Speed: turbo\" on the bottom row for 2 seconds. Works at any time; a tape that is playing or a block being saved changes speed at once. Back to turbo after KEY0 or power-up."]],
     ["**F8**", "Swaps the video between 50 Hz (720x576) and 60 Hz (640x480)",
-      ["Each press swaps. The choice survives resets; the S1 switch (when wired) sets the default at power-up."]],
+      ["Each press swaps. The choice survives resets. At power-up the video is always 60 Hz (640x480), which every monitor accepts; not all monitors accept the 50 Hz mode. The 50/60 switch on the adapter is not used.",
+       "Border effects (stripes in the border that line up with the picture) only work in the 50 Hz mode."]],
+    ["**Page Up** / **Page Down** (browser closed)", "Moves the frame interrupt 1/8 line earlier / later (50 Hz mode)",
+      ["Lines up border effects with the picture: Page Down moves them down. Shows \"Frame INT: 24.1\" (line.eighth) for 4 seconds; 24.1 is the default, measured with Aquaplane. Back to 24.1 after KEY0 or power-up. With the browser open these keys page through the list."]],
     ["**Ctrl + Alt + Del**", "Resets the Spectrum",
       ["Like pressing reset on the machine: the ROMs are reloaded and the 128K menu comes back.",
        "The SD tape loader is not reset: a tape that is playing keeps its place (pause it first with keypad 5 if you want it to stop)."]],
@@ -86,24 +93,25 @@ const children = [
   table([2816, 3272, 3272], ["Key", "Browser closed", "Browser open"], [
     ["**F12**, keypad **/** or **NumLock**", "Opens the browser; while recording: stops recording", "Closes the browser"],
     ["Keypad **8** / **2**, **F9** / **F10**, **Up** / **Down**", "(Up / Down go to the Spectrum as cursor keys)", "Moves the selection up / down (held: repeats)"],
-    ["Keypad **4** / **6**, **Left** / **Right**", "(Left / Right go to the Spectrum)", "One page up / down"],
-    ["**Enter**, keypad **Enter**", "(goes to the Spectrum)", "Loads the selected file, or opens the folder"],
-    ["**F11**", "Pauses / continues the tape", "Loads the selected file, or opens the folder"],
+    ["Keypad **4** / **6**, **Left** / **Right**, **Page Up** / **Page Down**", "(Left / Right go to the Spectrum)", "One page (20 lines) up / down; held: repeats"],
+    ["**Enter**, keypad **Enter**", "(goes to the Spectrum)", "Plays the selected tape, loads the selected .z80 snapshot, or opens the folder"],
+    ["**F11**", "Pauses / continues the tape", "Same as Enter"],
     ["Keypad **5**", "Pauses / continues the tape", "Pauses / continues the tape"],
     ["Keypad **-**", "Goes back one block on the tape", "Goes back one block on the tape"],
     ["**F7**, keypad *", "Stops the tape: normal speed and normal EAR again, nothing shown on screen", "Stops the tape"],
     ["**Esc**, **Backspace**", "(Esc = BREAK, Backspace = DELETE on the Spectrum)", "Goes up one folder; in the top folder closes the browser"],
+    ["**F2**", "Saves a snapshot into the folder the browser was last in", "Saves a snapshot into this folder, then closes the browser"],
   ]),
   gap(),
   p("The browser stays on screen until you let go of the key that closed it, so the Spectrum never sees that Enter or Esc (Esc would be BREAK)."),
 
-  h2("Save name keys"),
-  p("After choosing [Save to this folder] in the browser:"),
+  h2("Name keys"),
+  p("After choosing [Save to this folder] in the browser, or after F2:"),
   table([2816, 6544], ["Key", "Action"], [
-    ["Letters, digits, **-**, **_**", "Type the name (up to 8 characters; .TAP is added)"],
+    ["Letters, digits, **-**, **_**", "Type the name (up to 8 characters; .TAP or .Z80 is added)"],
     ["**Backspace**", "Deletes the last character"],
-    ["**Enter**", "Starts recording"],
-    ["**Esc**", "Back to the browser"],
+    ["**Enter**", "Starts recording / saves the snapshot"],
+    ["**Esc**", "Back to the browser / no snapshot, the Spectrum runs on"],
   ]),
   gap(),
   p("While recording, **F12** (or **F7**) stops recording and closes the file; the browser cannot be opened then."),
@@ -132,6 +140,21 @@ const children = [
   stepOf("save")("Press **F12** to stop. The bottom row shows **Saved NAME.TAP (n blocks)**. If nothing was saved, the empty file is removed."),
   p("To load it back: F12, choose the file, Enter (after LOAD \"\" as usual). Only the ROM's standard save format is recognised."),
 
+  h2("Saving and loading snapshots"),
+  p("A snapshot is the whole machine at one moment: memory, processor, sound chip, border. Load it later and the program goes on from exactly there, for example a game at level 5."),
+  stepOf("snapsave")("At the moment you want to keep, press **F2**. The Spectrum stops at once (the sound goes quiet) and asks for a name."),
+  stepOf("snapsave")("Type a name (up to 8 letters or digits) and press **Enter**. The file NAME.Z80 is written into the folder the browser was last in (the top folder after power-up; to save elsewhere, open the browser with F12, go into the folder, then press F2 there)."),
+  stepOf("snapsave")("After about a second the Spectrum runs on exactly where it stopped, and the bottom row shows **Saved NAME.Z80**. Esc instead of Enter saves nothing."),
+  stepOf("snapload")("Press **F12**, choose the .z80 file and press **Enter**. No LOAD \"\" is needed: the program starts at once from the saved moment."),
+  stepOf("snapload")("Snapshots from emulators work too: .z80 files of 48K and 128K programs. 48K programs run in 48K mode, as on a real 128."),
+  p("A name that already exists is refused: choose another. F2 does nothing while the tape recorder is recording (press F12 first). Loading a snapshot stops a tape that is playing."),
+
+  h2("Border effects in the wrong place"),
+  p("Some games draw stripes in the border at a fixed moment, for example the horizon in Aquaplane. They only line up with the picture in the 50 Hz mode."),
+  stepOf("border")("Press **F8** once for the 50 Hz mode (720x576), then load the game."),
+  stepOf("border")("If the border stripe sits above or below where the game draws it, press **Page Down** (stripe moves down) or **Page Up** (up), with the browser closed, until it lines up. Each press moves it 1/8 line; the bottom row shows the position."),
+  stepOf("border")("Note the number shown. The setting goes back to 24.1 after KEY0 or power-up."),
+
   h2("Starting the test ROM (DiagROM)"),
   stepOf("diag")("Press and hold **F1**."),
   stepOf("diag")("While holding F1: switch the board on, or press KEY0, or press **Ctrl + Alt + Del**."),
@@ -148,8 +171,8 @@ const children = [
 
   h1("Good to know"),
   bullet("SD card: FAT32 or FAT16. exFAT does not work (most cards larger than 32 GB come as exFAT: format them as FAT32)."),
-  bullet("Folders work. The browser shows folders first, then files, sorted by name, up to 400 per folder; long names are shown up to 27 characters."),
-  bullet("Unmodified .tap and .tzx files are played; no conversion on the PC is needed."),
+  bullet("Folders work. The browser shows folders first, then files, sorted by name, up to 350 per folder; long names are shown up to 27 characters."),
+  bullet("Unmodified .tap and .tzx files are played and .z80 snapshots are loaded; no conversion on the PC is needed."),
   bullet("The external tape simulator on the adapter (TAPE_IN, TURBO_N) still works as before."),
   bullet("If the browser says **No SD card, or not FAT16/FAT32**, insert the card and press Enter to try again."),
 

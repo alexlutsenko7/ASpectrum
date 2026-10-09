@@ -2,7 +2,7 @@
 
 A ZX Spectrum 128K in an FPGA: an Intel/Altera Cyclone IV E (EP4CE15F23C8) on a QMTECH core board, with the RAM and
 ROMs in the board's SDRAM, VGA output, AY sound, a USB keyboard, and a built-in SD card tape loader that plays
-unmodified `.tap` / `.tzx` files and saves programs back to the card.
+unmodified `.tap` / `.tzx` files, saves programs back to the card, and saves / loads `.z80` snapshots.
 
 Status: working on hardware (October 2026).
 
@@ -15,11 +15,13 @@ Status: working on hardware (October 2026).
 - **Video**: VGA 720x576@50 (576p) or 640x480@60, 2 bits per colour, switchable at run time.
 - **USB keyboard** through a CH9350-style UART module, with machine keys: DiagROM, 50/60 Hz, reset.
 - **SD card tape loader** (RISC-V PicoRV32 soft CPU with firmware in C):
-  - on-screen browser (folders, long names, up to 400 entries), FAT16 / FAT32;
+  - on-screen browser (folders, long names, up to 350 entries), FAT16 / FAT32;
   - plays TAP and TZX (incl. turbo blocks, pure tones, pulse sequences, direct recordings, loops, jumps, calls,
     stop blocks) T-state exact, in turbo (8x) or at normal speed;
   - saves: everything the Spectrum `SAVE`s goes into a `.tap` file on the card;
-  - pause, back one block, stop.
+  - pause, back one block, stop;
+  - **snapshots**: F2 saves the whole machine as a `.z80` (version 3, 128K) at any moment; the browser loads
+    `.z80` files (versions 1-3, 48K and 128K).
 - **Fully constrained timing**: every clock and I/O constrained, timing met at all corners.
 
 ## Hardware
@@ -66,19 +68,21 @@ power-cycle the board. After that, `.sof` loads over JTAG are enough during deve
 
 | Key | Function |
 |---|---|
-| F12 | tape browser (Enter loads a file; first line *[Save to this folder]* starts saving) |
+| F12 | tape browser (Enter plays a tape / loads a `.z80` snapshot; first line *[Save to this folder]* starts saving) |
+| F2 | save a snapshot: type a name, Enter (`NAME.Z80` in the browser's current folder) |
 | F12 while saving | stop saving and close the file |
 | Keypad 5 / F11 | pause / continue the tape |
 | Keypad - | back one block |
 | F7 | stop the tape |
 | F6 | tape speed: turbo (default) / normal |
-| F8 | 50 / 60 Hz video |
+| F8 | 60 / 50 Hz video (starts at 640x480@60) |
 | F1 held at start | DiagROM instead of the 128K ROM |
 | Ctrl+Alt+Del | reset the Spectrum |
 | KEY0 (board) | reset everything |
 
 Loading: `LOAD ""` (or *Tape Loader* in the 128K menu), F12, choose the file, Enter.
 Saving: F12, *[Save to this folder]*, type a name, Enter, then `SAVE` on the Spectrum as often as you like; F12 ends.
+Snapshot: F2 at any moment, type a name, Enter; load it later from the F12 browser.
 SD card: FAT32 or FAT16 (not exFAT).
 
 The complete key list with step-by-step usage is in `docs/ASpectrum_Keys.docx`.
@@ -90,6 +94,8 @@ bash ASpectrum/fw/test/run_host_test.sh          # PC: FAT reading/writing, ever
 bash ASpectrum/sim/run_loader_sim.sh             # RTL: tape loader with an SD card model (play, stop, save)
 bash ASpectrum/sim/run_sim.sh                    # RTL: whole machine boots the 128K ROM
 bash ASpectrum/sim/run_tapeload_sim.sh           # RTL: the 128K ROM loads a program from the SD card (~70 min)
+bash ASpectrum/sim/run_snap_sim.sh               # RTL: snapshot freeze / restore with the real T80
+bash ASpectrum/sim/run_snapsys_sim.sh            # RTL: whole machine + firmware: F2 save, F12 load back
 ```
 
 The PC tests need a Windows gcc (w64devkit); the simulations need Questa (Intel FPGA Starter Edition).
@@ -100,7 +106,8 @@ The PC tests need a Windows gcc (w64devkit); the simulations need Questa (Intel 
 |---|---|
 | `docs/ASpectrum_Architecture.docx` | architecture of the whole machine: block diagram, clocks, memory, video, tape loader, pins, timing |
 | `docs/ASpectrum_Keys.docx` | all keys and usage cases |
-| `docs/SD_TAPE_LOADER.md` | SD tape loader: design, registers, firmware, saving |
+| `docs/ASpectrum_FKeys.docx` | short sheet of the F keys |
+| `docs/SD_TAPE_LOADER.md` | SD tape loader: design, registers, firmware, saving, snapshots |
 | `docs/SDRAM_CONTROLLER.md`, `docs/SDRAM_TUTORIAL.md` | the SDRAM controller in detail, and an SDRAM tutorial |
 | `docs/T80_CEN_ANALYSIS.md` | running the T80 from a clock enable at 112 MHz |
 | `docs/BOARD_PINOUT.md`, `docs/QM_ATRIX_ADAPTER.md` | board headers and the I/O adapter |

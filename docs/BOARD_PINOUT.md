@@ -138,7 +138,7 @@ J1.2 (3v3).
 | 1 | — | J1.3 GND | GND | | ground wire along the bundle |
 | 15 | J1 | J1.17 AY | AUDIO_AY | out | PWM; 68 Ω + 100 nF low-pass on the adapter |
 | 16 | J2 | J1.19 Beeper | AUDIO_BEEPER | out | port FE bit 4 |
-| 22 | D2 | J1.5 Vrf | SW_50_60 | in | S1: GND or 3v3 via 3k3 |
+| 22 | D2 | J1.5 Vrf | (unused) | — | S1: GND or 3v3 via 3k3. Not read since 2026-10-09: video mode = F8 only, default 60 Hz |
 | 23 | C1 | J1.15 Up | JOY_UP_N | in | 3k3 pull-up on the adapter; active low |
 | 24 | C2 | J1.11 Dwn | JOY_DOWN_N | in | |
 | 25 | B1 | J1.9 Lft | JOY_LEFT_N | in | |
