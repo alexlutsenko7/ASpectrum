@@ -10,8 +10,8 @@ Status: working on hardware (October 2026).
 
 - **ZX Spectrum 128K**: T80 Z80 core at the exact 3.5469 MHz, or 28 MHz turbo; 128 KB RAM with 7FFD paging; 128K
   ROM set and DiagROM; AY-3-8912 (JT49); beeper; Kempston joystick; 50 Hz interrupt; memory contention (128K
-  timing, memory and I/O cycles; not cycle-exact), so most timing-critical games and border effects run as on the
-  real machine.
+  timing, memory and I/O cycles; not cycle-exact) and the floating bus, so most timing-critical games and border
+  effects run as on the real machine.
 - **Memory in SDRAM**: own 112 MHz controller for the W9825G6KH (open-row, CAS latency 2); the CPU is stepped by a
   clock enable and simply waits when the SDRAM is busy. The screen is mirrored in block RAM for the video.
 - **Video**: VGA 720x576@50 (576p) or 640x480@60, 2 bits per colour, switchable at run time.
@@ -76,7 +76,7 @@ power-cycle the board. After that, `.sof` loads over JTAG are enough during deve
 | Keypad 5 / F11 | pause / continue the tape |
 | Keypad - | back one block |
 | F7 | stop the tape |
-| F5 | memory contention on (default) / off |
+| F5 | memory contention and floating bus on (default) / off |
 | F6 | tape speed: turbo (default) / normal |
 | F8 | 60 / 50 Hz video (starts at 640x480@60; border effects line up only at 50 Hz) |
 | Page Up / Page Down | browser open: page through the list; closed: move the 50 Hz frame interrupt 1/8 line to line up border effects (default 24.1, set for Aquaplane) |
@@ -101,6 +101,7 @@ bash ASpectrum/sim/run_tapeload_sim.sh           # RTL: the 128K ROM loads a pro
 bash ASpectrum/sim/run_snap_sim.sh               # RTL: snapshot freeze / restore with the real T80
 bash ASpectrum/sim/run_snapsys_sim.sh            # RTL: whole machine + firmware: F2 save, F12 load back
 bash ASpectrum/sim/run_cont_sim.sh               # RTL: memory contention (NOPs per line in contended RAM: 57 / 41)
+bash ASpectrum/sim/run_float_sim.sh              # RTL: floating bus (IN A,(FF) against a 128K reference)
 ```
 
 The PC tests need a Windows gcc (w64devkit); the simulations need Questa (Intel FPGA Starter Edition).
