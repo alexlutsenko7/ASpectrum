@@ -12,9 +12,10 @@
 //   KEY0 (W13)    reset (CPU, ports, ROM reload, tape loader)
 //   Ctrl+Alt+Del  reset of the machine only (the tape loader keeps running)
 //   F1            held while the CPU starts (power-up or after a reset): DiagROM
-//   F8            swap 50/60 Hz video
+//   F2            save a snapshot (.z80) to the SD card; the F12 browser loads them
+//   F8            swap 50/60 Hz video (power-up default: 640x480@60, which every
+//                 monitor accepts; 576p50 is not supported by all of them)
 //   F12 / numpad  SD card tape loader (browser on the OSD)
-//   S1 (U7.22)    50/60 Hz default (high = 50 Hz; weak pull-up while unwired)
 //   TURBO_N       low = 28 MHz CPU (external tape simulator); the internal SD
 //                 loader switches turbo on by itself while it plays
 //   LED           on = turbo; fast blink = no ROM image in flash (program the .jic)
@@ -23,8 +24,7 @@
 `default_nettype none
 
 module ASpectrum #(
-    parameter         SD_PHASE_PS   = "1250",   // SDRAM clock delay (as DDR_TEST, 1339 ps achieved)
-    parameter         SW_HIGH_IS_50 = 1'b1
+    parameter         SD_PHASE_PS   = "1250"    // SDRAM clock delay (as DDR_TEST, 1339 ps achieved)
 )(
     input  wire        CLOCK_50,
     input  wire        RESET_N,
@@ -67,7 +67,6 @@ module ASpectrum #(
     // adapter J1, wired to U7
     output wire        AUDIO_AY,
     output wire        AUDIO_BEEPER,
-    input  wire        SW_50_60,
     input  wire        JOY_UP_N,
     input  wire        JOY_DOWN_N,
     input  wire        JOY_LEFT_N,
@@ -162,16 +161,14 @@ always @(posedge CLOCK_50 or negedge vga_locked)
     else             rst50_sr <= {rst50_sr[1:0], 1'b1};
 wire rst50_n = rst50_sr[2];
 
-wire sw_50;
-debounce u_db_sw  (.clk(CLOCK_50), .rst_n(rst50_n), .in(SW_HIGH_IS_50 ? SW_50_60 : !SW_50_60), .out(sw_50));
-
-// F8 (keyboard, power-on reset only) toggles kbd_f8_tgl: the video mode survives resets
+// F8 (keyboard, power-on reset only) toggles kbd_f8_tgl: the video mode survives resets.
+// kbd_f8_tgl = 0 after power-up -> 640x480@60 (sel = 0); each F8 press swaps.
 reg [1:0] f8_s;
 always @(posedge CLOCK_50 or negedge rst50_n)
     if (!rst50_n) f8_s <= 2'b00;
     else          f8_s <= {f8_s[0], kbd_f8_tgl};
 
-wire mode_req = sw_50 ^ f8_s[1];
+wire mode_req = f8_s[1];
 
 localparam [1:0] S_OFF = 2'd0, S_SEL = 2'd1, S_ENA = 2'd2, S_RUN = 2'd3;
 reg  [1:0] vstate;
@@ -280,33 +277,6 @@ zx_system u_sys (
 
 assign LEDR = led;                      // active low LED: led = 0 -> on
 
-endmodule
-
-//-----------------------------------------------------------------------------
-// 2-FF synchroniser + ~10 ms (2^19 clocks at 50 MHz) stability filter
-//-----------------------------------------------------------------------------
-module debounce (
-    input  wire clk,
-    input  wire rst_n,
-    input  wire in,
-    output reg  out
-);
-reg [1:0]  sync;
-reg [18:0] cnt;
-always @(posedge clk or negedge rst_n)
-    if (!rst_n) begin
-        sync <= 2'b00;
-        cnt  <= 19'd0;
-        out  <= 1'b0;
-    end else begin
-        sync <= {sync[0], in};
-        if (sync[1] == out)
-            cnt <= 19'd0;
-        else if (&cnt)
-            out <= sync[1];
-        else
-            cnt <= cnt + 19'd1;
-    end
 endmodule
 
 `default_nettype wire

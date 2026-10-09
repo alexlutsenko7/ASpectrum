@@ -67,7 +67,7 @@ set_multicycle_path -from [get_registers {*u_loader|done}] -to [get_registers {*
 #------------------------------------------------------------------------------
 # Board I/O: asynchronous or not timing-critical
 #------------------------------------------------------------------------------
-set_false_path -from [get_ports {RESET_N SW_50_60 TAPE_IN TURBO_N KBD_A KBD_B GND_TIE[*] JOY_*}]
+set_false_path -from [get_ports {RESET_N TAPE_IN TURBO_N KBD_A KBD_B GND_TIE[*] JOY_*}]
 
 # SD card SPI (tape_loader): SCK <= 14 MHz = 4 x 56 MHz clocks per period; MOSI changes
 # half a period before the rising edge, MISO is taken a whole period after the card

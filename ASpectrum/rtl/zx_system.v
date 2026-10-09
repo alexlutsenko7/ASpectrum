@@ -142,7 +142,7 @@ rom_loader #(.DIV(FLASH_DIV)) u_loader (
 // Keyboard (power-on reset only), AY
 //-----------------------------------------------------------------------------
 wire [39:0] kb_rows;
-wire [11:0] lkeys;
+wire [15:0] lkeys;
 wire        kb_f1, kb_seen;
 wire [31:0] kb_raw;
 wire        l_osd_on, l_osd_full;
@@ -219,6 +219,11 @@ sd_dac #(.W(10)) u_dac (
 //-----------------------------------------------------------------------------
 wire        sh_we, sh_page7, screen7, beeper, diag_rom, cpu_running, cen_tgl;
 wire        l_tape_on, l_tape_lvl, l_turbo, l_hold, mic;
+wire        snap_freeze, snap_req, snap_frozen, snap_ack;
+wire        frame_n;                // frame interrupt mark (zx_video, pixel clock)
+wire [3:0]  snap_cmd;
+wire [17:0] snap_addr;
+wire [31:0] snap_wdata, snap_rdata;
 wire [12:0] sh_addr;
 wire [7:0]  sh_data;
 wire [2:0]  border;
@@ -230,7 +235,7 @@ zx_bus u_bus (
     .turbo       (!turbo_n | l_turbo),
     .diag_key    (kb_f1),
     .vid50       (mode50),
-    .vsync_n     (vga_vs),
+    .vsync_n     (frame_n),         // frame interrupt mark from the video (50 Hz mode)
     .kb_rows     (kb_rows),
     .joy         (~joy_n),
     .tape_in     (tape_in),
@@ -257,15 +262,26 @@ zx_bus u_bus (
     .screen7     (screen7),
     .beeper      (beeper),
     .diag_rom    (diag_rom),
-    .cpu_running (cpu_running)
+    .cpu_running (cpu_running),
+    .snap_freeze (snap_freeze),
+    .snap_req    (snap_req),
+    .snap_cmd    (snap_cmd),
+    .snap_addr   (snap_addr),
+    .snap_wdata  (snap_wdata),
+    .snap_frozen (snap_frozen),
+    .snap_ack    (snap_ack),
+    .snap_rdata  (snap_rdata),
+    .cont_en     (cont_on)
 );
 
 assign audio_beeper = beeper;
 
 //-----------------------------------------------------------------------------
-// SD card tape loader (56 MHz)
+// SD card tape loader (56 MHz); also saves / loads .z80 snapshots through zx_bus
 //-----------------------------------------------------------------------------
 wire       osd_we;
+wire [19:0] int_pos;
+wire        cont_on;
 wire [9:0] osd_addr;
 wire [7:0] osd_data;
 
@@ -288,7 +304,17 @@ tape_loader #(.FW0(FW0), .FW1(FW1), .FW2(FW2), .FW3(FW3)) u_tape (
     .osd_full   (l_osd_full),
     .osd_we     (osd_we),
     .osd_addr   (osd_addr),
-    .osd_data   (osd_data)
+    .osd_data   (osd_data),
+    .int_pos    (int_pos),
+    .cont_on    (cont_on),
+    .snap_freeze (snap_freeze),
+    .snap_req   (snap_req),
+    .snap_cmd   (snap_cmd),
+    .snap_addr  (snap_addr),
+    .snap_wdata (snap_wdata),
+    .snap_frozen (snap_frozen),
+    .snap_ack   (snap_ack),
+    .snap_rdata (snap_rdata)
 );
 
 //-----------------------------------------------------------------------------
@@ -311,6 +337,7 @@ zx_video #(.FONT_HEX(FONT_HEX)) u_video (
     .osd_wdata (osd_data),
     .osd_on    (l_osd_on),
     .osd_full  (l_osd_full),
+    .int_pos   (int_pos),
     .vga_r     (vga_r),
     .vga_r_low (vga_r_low),
     .vga_g     (vga_g),
@@ -318,7 +345,8 @@ zx_video #(.FONT_HEX(FONT_HEX)) u_video (
     .vga_b     (vga_b),
     .vga_b_low (vga_b_low),
     .vga_hs    (vga_hs),
-    .vga_vs    (vga_vs)
+    .vga_vs    (vga_vs),
+    .frame_n   (frame_n)
 );
 
 //-----------------------------------------------------------------------------

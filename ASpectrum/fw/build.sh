@@ -15,11 +15,11 @@ OBJCOPY=$XP/bin/riscv-none-elf-objcopy.exe
 SIZE=$XP/bin/riscv-none-elf-size.exe
 
 mkdir -p build
-$CC -march=rv32imc -mabi=ilp32 -Os -g -Wall -Wextra -ffreestanding -nostdlib \
+$CC -march=rv32imc -mabi=ilp32 -Os -msave-restore -g -Wall -Wextra -ffreestanding -nostdlib \
     -fno-tree-loop-distribute-patterns -ffunction-sections -fdata-sections \
     -Wl,--gc-sections -Wl,--no-warn-rwx-segments -Wl,--defsym=RAM_SIZE=$((RAM_WORDS * 4)) -T link.ld \
     -Wl,-Map=build/fw.map -o build/fw.elf \
-    start.S main.c sd.c fat.c tape.c save.c osd.c util.c rv_libc.c -lgcc
+    start.S main.c sd.c fat.c tape.c save.c snap.c osd.c util.c rv_libc.c -lgcc
 $OBJCOPY -O binary build/fw.elf build/fw.bin
 $SIZE build/fw.elf
 python3 -I tools/bin2lanes.py build/fw.bin $RAM_WORDS build/fw

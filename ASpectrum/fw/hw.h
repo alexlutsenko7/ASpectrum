@@ -21,6 +21,12 @@
 #define RECCTL      IO(0x24)    /* W: [0] armed (hold the Spectrum while an event is unread), [1] hold the Spectrum
                                    R: T-states since the last MIC edge */
 #define KEYRAW      IO(0x28)    /* R: last keyboard report {modifiers, key 1, key 2, key 3} (USB HID codes) */
+#define SNAPCTL     IO(0x2C)    /* W: [0] freeze the Spectrum CPU  R: [0] frozen, [1] command busy */
+#define SNAPCMD     IO(0x30)    /* W: start a command: [31:28] command (snap.c), [17:0] address */
+#define SNAPDAT     IO(0x34)    /* W: command data  R: result */
+#define INTPOS      IO(0x38)    /* W/R: 50 Hz frame interrupt in rtl/zx_video.v: [9:0] VGA line, [25:16] pixel (of 864);
+                                   [31] memory contention off (rtl/zx_bus.v) */
+#define INT_NOCONT  0x80000000u
 #define OSD_RAM     ((volatile uint8_t *)0x20000000u)   /* 32 x 24 characters, bit 7 = inverse */
 
 #define SPI_BUSY    0x80000000u
@@ -36,6 +42,8 @@
 #define REC_LOST    0x20000000u
 #define REC_ARMED   1u
 #define REC_HOLD    2u
+#define SNAP_FROZEN 1u
+#define SNAP_BUSY   2u
 
 /* KEYS bits (zx_keyboard.v): numpad / F-key / arrow keys */
 #define K_MENU      (1u << 0)   /* F12, keypad /, NumLock */
@@ -50,5 +58,9 @@
 #define K_BACK      (1u << 9)   /* Esc, Backspace         */
 #define K_STOP      (1u << 10)  /* F7, keypad *           */
 #define K_SPEED     (1u << 11)  /* F6                     */
+#define K_SNAP      (1u << 12)  /* F2                     */
+#define K_PGUP      (1u << 13)  /* Page Up                */
+#define K_PGDN      (1u << 14)  /* Page Down              */
+#define K_CONT      (1u << 15)  /* F5                     */
 
 #endif

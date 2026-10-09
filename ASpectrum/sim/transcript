@@ -1,6 +1,6 @@
 # ** Note: (vsim-220) 'C:/Altera/questa_fse/win64/../modelsim.ini' is used as the ini file.
-# vsim -c -quiet -lib work_l -t ps tb_tape_loader -do "run -all; quit -f" 
-# Start time: 15:34:51 on Oct 08,2026
+# vsim -c -quiet -lib work_snap -t ps tb_snap -do "run -all; quit -f" 
+# Start time: 12:20:38 on Oct 09,2026
 # ** Note: (vsim-3812) Design is being optimized...
 # ** Note: (vopt-220) 'C:/Altera/questa_fse/win64/../modelsim.ini' is used as the ini file.
 # //  Questa Altera Starter FPGA Edition-64
@@ -18,75 +18,47 @@
 # // and may not be used in any way not expressly authorized by SISW.
 # //
 # run -all
-# image work_loader/card.img, reference work_loader/short_ref.txt
-#          10000000000 card: 11 commands, 2 sector reads, 0 CRC errors
-#          14000000000 OSD (browser, on=1 full=1):
-#    *| ASpectrum tape loader          |
-#     |/                               |
-#     | [Save to this folder]          |
-#    *| Big Folder Name/               |
-#     | GAMES/                         |
-#     | short.tzx                      |
-#     | TEST1.TAP                      |
-#     | test2.tzx                      |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#    *|Ent=load Esc=up 5=stop F12=exit |
-#          36181242288 player ran dry (marker 6, segments so far 162)
-#          39184259952 OSD (stopped, on=1 full=0):
-#    *|Tape stopped (5=go on)          |
-#          39252724272 player ran dry (marker 7, segments so far 168)
-# signal: 168 segments compared, 0 mismatches; player ran dry 2 times (expected 2: stop, end)
-#          55184259952 Stop: tape, turbo and OSD off
-#          79184259952 OSD (name, on=1 full=1):
-#    *| Save to SD card                |
-#     |/                               |
-#     |                                |
-#     | Name: SAVE0001_.TAP            |
-#     |                                |
-#     | After Enter, save on the       |
-#     | Spectrum as often as you like; |
-#     | all blocks go into this file.  |
-#     | F12 stops recording.           |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#     |                                |
-#    *|Type name, Ent=start, Esc=back  |
-#          85184259952 OSD (recording, on=1 full=0):
-#    *|Rec SAVE0001.TAP: 0 F12=stop    |
-#          85184259952 saving: 5742 MIC edges queued
-#         392109412368 OSD (recorded, on=1 full=0):
-#    *|Rec SAVE0001.TAP: 2 F12=stop    |
-#         398109412368 OSD (saved, on=1 full=0):
-#    *|Saved SAVE0001.TAP (2 blocks)   |
-#         398109412368 hold was active for 2066972 clocks (CPU waited for the loader)
-#         406109412368 card writes: 5
-# PASS (simulation; card image checked next)
-# ** Note: $finish    : tb_tape_loader.sv(300)
-#    Time: 406109412368 ps  Iteration: 0  Instance: /tb_tape_loader
-# End time: 15:52:58 on Oct 08,2026, Elapsed time: 0:18:07
-# Errors: 0, Warnings: 0
+# ** Warning: NUMERIC_STD.TO_INTEGER: metavalue detected, returning 0
+#    Time: 0 ps  Iteration: 0  Instance: /tb_snap/u_bus/u_cpu/u_t80/Regs
+# ** Warning: NUMERIC_STD.TO_INTEGER: metavalue detected, returning 0
+#    Time: 0 ps  Iteration: 0  Instance: /tb_snap/u_bus/u_cpu/u_t80/Regs
+# ** Warning: NUMERIC_STD.TO_INTEGER: metavalue detected, returning 0
+#    Time: 0 ps  Iteration: 0  Instance: /tb_snap/u_bus/u_cpu/u_t80/Regs
+# ** Warning: NUMERIC_STD.TO_INTEGER: metavalue detected, returning 0
+#    Time: 0 ps  Iteration: 0  Instance: /tb_snap/u_bus/u_cpu/u_t80/Regs
+# ** Warning: NUMERIC_STD.TO_INTEGER: metavalue detected, returning 0
+#    Time: 0 ps  Iteration: 0  Instance: /tb_snap/u_bus/u_cpu/u_t80/Regs
+# ** Warning: NUMERIC_STD.TO_INTEGER: metavalue detected, returning 0
+#    Time: 0 ps  Iteration: 0  Instance: /tb_snap/u_bus/u_cpu/u_t80/Regs
+# ** Warning: NUMERIC_STD."=": metavalue detected, returning FALSE
+#    Time: 0 ps  Iteration: 0  Instance: /tb_snap/u_bus/u_cpu/u_t80
+# ** Warning: NUMERIC_STD."=": metavalue detected, returning FALSE
+#    Time: 0 ps  Iteration: 0  Instance: /tb_snap/u_bus/u_cpu/u_t80
+# ** Warning: NUMERIC_STD."=": metavalue detected, returning FALSE
+#    Time: 0 ps  Iteration: 0  Instance: /tb_snap/u_bus/u_cpu/u_t80
+# ** Warning: NUMERIC_STD."=": metavalue detected, returning FALSE
+#    Time: 0 ps  Iteration: 0  Instance: /tb_snap/u_bus/u_cpu/u_t80
+# ** Warning: NUMERIC_STD."=": metavalue detected, returning FALSE
+#    Time: 0 ps  Iteration: 0  Instance: /tb_snap/u_bus/u_cpu/u_t80
+# TURBO=0, program 295 bytes
+# ** Warning: NUMERIC_STD."=": metavalue detected, returning FALSE
+#    Time: 0 ps  Iteration: 1  Instance: /tb_snap/u_bus/u_cpu/u_t80
+# ** Warning: NUMERIC_STD."=": metavalue detected, returning FALSE
+#    Time: 0 ps  Iteration: 1  Instance: /tb_snap/u_bus/u_cpu/u_t80
+# ** Warning: NUMERIC_STD."=": metavalue detected, returning FALSE
+#    Time: 0 ps  Iteration: 1  Instance: /tb_snap/u_bus/u_cpu/u_t80
+# ** Warning: NUMERIC_STD."=": metavalue detected, returning FALSE
+#    Time: 0 ps  Iteration: 1  Instance: /tb_snap/u_bus/u_cpu/u_t80
+# ** Warning: NUMERIC_STD."=": metavalue detected, returning FALSE
+#    Time: 0 ps  Iteration: 1  Instance: /tb_snap/u_bus/u_cpu/u_t80
+#            201617435 SDRAM MODEL: mode register set, CL=2
+#          44294794416 run 0 done: 0 freezes (0 in HALT, 0 inside LDIR), 0 LOADs, INTs 100, checksum 5bb7, PC 010d
+#          89317466352 run 1 done: 100 freezes (0 in HALT, 6 inside LDIR), 0 LOADs, INTs 100, checksum 5bb7, PC 010d
+#         134764986096 run 2 done: 100 freezes (2 in HALT, 7 inside LDIR), 100 LOADs, INTs 100, checksum 5bb7, PC 010d
+# run 1 vs run 0: 0 differences
+# run 2 vs run 0: 0 differences
+# SNAPSHOT TEST PASSED
+# ** Note: $finish    : tb_snap.sv(318)
+#    Time: 134764986096 ps  Iteration: 1  Instance: /tb_snap
+# End time: 12:24:55 on Oct 09,2026, Elapsed time: 0:04:17
+# Errors: 0, Warnings: 16

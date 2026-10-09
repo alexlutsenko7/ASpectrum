@@ -11,6 +11,11 @@
 //
 //   din   -> DInst (opcode fetch) and, latched at the end of T2, -> DI
 //            (like T80se: DI_Reg <= DI when TState = 2 and WAIT_n = 1)
+//
+// Snapshots (zx_bus): regs = all registers (T80 REG), dirset loads them from
+// dir in one clock (T80 DIR, used right after a reset). Layout, from bit 0:
+//   A F A' F' I R SP PC BC DE HL IX BC' DE' HL' IY (8/16 bits each), IM [209:208],
+//   IFF1 [210], IFF2 [211]; 16-bit registers low byte first (C at 80, B at 88).
 //=============================================================================
 `default_nettype none
 
@@ -31,12 +36,15 @@ module cpu_t80 (
     output wire        write,
     output wire        m1_n,
     output wire        intcycle_n,    // 0 during the interrupt acknowledge M1
-    output wire        halt_n
+    output wire        halt_n,
+
+    output wire [211:0] regs,
+    input  wire        dirset,
+    input  wire [211:0] dir
 );
 
 reg  [7:0] di_reg;
 wire       rfsh_n, busak_n, inte, stop;
-wire [211:0] reg_unused;
 
 T80 #(
     .Mode   (0),                      // Z80
@@ -67,9 +75,9 @@ T80 #(
     .Stop       (stop),
     .R800_mode  (1'b0),
     .out0       (1'b0),
-    .REG        (reg_unused),
-    .DIRSet     (1'b0),
-    .DIR        (212'd0)
+    .REG        (regs),
+    .DIRSet     (dirset),
+    .DIR        (dir)
 );
 
 always @(posedge clk or negedge rst_n)

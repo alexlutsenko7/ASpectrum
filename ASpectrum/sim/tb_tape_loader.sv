@@ -49,7 +49,7 @@ reg [31:0] keyraw = 0;
 int       hold_clks = 0;
 always @(posedge clk) if (hold) hold_clks++;
 
-reg  [11:0] keys = 0;
+reg  [15:0] keys = 0;
 wire       sd_cs_n, sd_sck, sd_mosi, sd_miso;
 wire       tape_on, tape_turbo, tape_lvl, osd_on, osd_full, osd_we;
 wire [9:0] osd_addr;
@@ -62,7 +62,9 @@ tape_loader #(
     .clk(clk56), .rst_n(rst_n), .keys(keys), .keyraw(keyraw), .cen_tgl(cen_tgl), .mic(mic), .hold(hold),
     .sd_cs_n(sd_cs_n), .sd_sck(sd_sck), .sd_mosi(sd_mosi), .sd_miso(sd_miso),
     .tape_on(tape_on), .tape_turbo(tape_turbo), .tape_lvl(tape_lvl),
-    .osd_on(osd_on), .osd_full(osd_full), .osd_we(osd_we), .osd_addr(osd_addr), .osd_data(osd_data)
+    .osd_on(osd_on), .osd_full(osd_full), .osd_we(osd_we), .osd_addr(osd_addr), .osd_data(osd_data), .int_pos(), .cont_on(),
+    .snap_freeze(), .snap_req(), .snap_cmd(), .snap_addr(), .snap_wdata(),
+    .snap_frozen(1'b0), .snap_ack(1'b0), .snap_rdata(32'd0)
 );
 
 sd_card_model #(.IMAGE(`IMAGE)) card (.sck(sd_sck), .mosi(sd_mosi), .cs_n(sd_cs_n), .miso(sd_miso));

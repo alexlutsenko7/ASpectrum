@@ -49,7 +49,7 @@ int slow_mode;                          /* F6: no turbo for loading and saving *
 static int      on, dst, pc, half, nbits, in_block, blocks;
 static uint32_t first_half, blk_len, len_pos;
 static uint8_t  cur;
-static FWFILE   wf;
+#define wf fw_file                       /* shared with snap.c (fat.h) */
 static char     fname[13];
 static uint32_t msg_t;                  /* message shown until then (TIMER) */
 static char     msg[40];

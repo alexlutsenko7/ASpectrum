@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""fatcheck.py IMAGE [PATH EXPECTED_FILE] ... -- independent FAT16/FAT32 check (for the save tests):
+"""fatcheck.py IMAGE [--get PATH OUT] [PATH EXPECTED_FILE] ... -- independent FAT16/FAT32 check (for the save tests):
   - every FAT copy identical;
   - every cluster used by a file or folder is allocated exactly once (no cross links),
     every allocated cluster is used (no lost clusters), chains end properly;
   - file sizes fit their chains;
-  - each PATH (8.3, e.g. /GAMES/SAVE.TAP) exists and its contents equal EXPECTED_FILE."""
+  - each PATH (8.3, e.g. /GAMES/SAVE.TAP) exists and its contents equal EXPECTED_FILE;
+  --get copies the file PATH out of the image into OUT."""
 import struct
 import sys
 
@@ -106,6 +107,13 @@ def main():
         errors.append(f"{len(lost)} lost clusters, e.g. {lost[:5]}")
 
     args = sys.argv[2:]
+    if args[:1] == ["--get"]:                       # --get PATH OUT: copy a file out of the image
+        p = args[1].upper()
+        if p in files:
+            open(args[2], "wb").write(files[p])
+        else:
+            errors.append(f"{p}: not found")
+        args = args[3:]
     for i in range(0, len(args), 2):
         p, exp = args[i].upper(), open(args[i + 1], "rb").read()
         if p not in files:

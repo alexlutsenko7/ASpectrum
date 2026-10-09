@@ -21,5 +21,6 @@ SECTIONS
     } > RAM
     __stack_top = ORIGIN(RAM) + LENGTH(RAM);
     ASSERT(SIZEOF(.data) == 0, "no initialised writable data allowed (a reset would not restore it)")
-    ASSERT(__bss_end + 1536 <= __stack_top, "less than 1.5 KB left for the stack")
+    /* deepest call chain (-fstack-usage, 2026-10-09): F2 name prompt -> fat_exists -> fat_list -> sd_read, ~0.75 KB */
+    ASSERT(__bss_end + 1280 <= __stack_top, "less than 1.25 KB left for the stack")
 }

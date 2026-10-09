@@ -13,6 +13,8 @@ static uint8_t  fat32, spc_shift, nfats, fat_dirty, fsinfo_done;
 static uint32_t spc, fat_lba, root_lba, root_secs, data_lba, root_clus, max_clus;
 static uint32_t fatsz, fsinfo_lba, free_hint;
 
+FWFILE fw_file;
+
 static uint32_t rd16(const uint8_t *p) { return p[0] | ((uint32_t)p[1] << 8); }
 static uint32_t rd32(const uint8_t *p) { return rd16(p) | (rd16(p + 2) << 16); }
 

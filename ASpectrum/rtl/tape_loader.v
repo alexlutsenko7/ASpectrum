@@ -5,6 +5,7 @@
 // PLL, edges aligned), so the crossings below are ordinary timed paths:
 //   keys, cen_tgl            112 -> 56: levels / a toggle, each value held >= 2 clocks here
 //   tape_on/lvl/turbo, osd_* 56 -> 112 / pixel clock: levels, synchronised by the receiver
+//   snap_*                   request toggle + data held until the acknowledge toggles back
 //
 // CPU: PicoRV32 (rtl/picorv32, unmodified), RV32IMC (compressed code: the firmware
 // fits 32 KB with 400 folder entries), no IRQ/counters.
@@ -25,6 +26,11 @@
 //     24 RECCTL    W: [0] armed (hold the Spectrum while an event is unread), [1] hold the Spectrum
 //                  R: T-states since the last MIC edge (saturating)
 //     28 KEYRAW    R: last keyboard report {modifiers, key 1, key 2, key 3}
+//     2C SNAPCTL   W: [0] freeze the Spectrum CPU (snapshots)   R: [0] frozen, [1] command busy
+//     30 SNAPCMD   W: start a snapshot command: [31:28] command, [17:0] address (zx_bus.v)
+//     34 SNAPDAT   W: command data   R: result of the last command
+//     38 INTPOS    W/R: 50 Hz frame interrupt position in zx_video: [9:0] VGA line, [25:16] pixel (reset INT_POS);
+//                  [31] memory contention off (zx_bus; reset: on)
 //   0x2000_0000  OSD text (32 x 24 bytes, write only, byte stores)
 //
 // Recorder (saving): MIC (port FE bit 3) edges, timed in T-states like the
@@ -52,6 +58,7 @@
 
 module tape_loader #(
     parameter integer RAM_WORDS = 8192,                 // 32 KB, as fw/build.sh
+    parameter [19:0]  INT_POS   = {10'd166, 10'd24},    // INTPOS after reset: {pixel, line} (zx_video; measured, see there)
     parameter integer GAP_T     = 8000,                 // T-states without a MIC edge = end of a block
     parameter         FW0 = "fw/build/fw0.hex",
     parameter         FW1 = "fw/build/fw1.hex",
@@ -61,7 +68,7 @@ module tape_loader #(
     input  wire        clk,             // 56 MHz
     input  wire        rst_n,           // synchronous to clk
 
-    input  wire [11:0] keys,            // loader keys (system clock domain)
+    input  wire [15:0] keys,            // loader keys (system clock domain)
     input  wire [31:0] keyraw,          // last keyboard report (system clock domain)
     input  wire        cen_tgl,         // toggles on every CPU T-state (system clock domain)
     input  wire        mic,             // port FE bit 3 (system clock domain)
@@ -80,7 +87,19 @@ module tape_loader #(
     output reg         osd_full,
     output reg         osd_we,
     output reg  [9:0]  osd_addr,
-    output reg  [7:0]  osd_data
+    output reg  [7:0]  osd_data,
+    output reg  [19:0] int_pos,         // frame interrupt {pixel, line} for zx_video (static, pixel clock synchronises)
+    output reg         cont_on,         // memory contention on (zx_bus synchronises)
+
+    // snapshot port to zx_bus (system clock domain)
+    output reg         snap_freeze,
+    output reg         snap_req,
+    output reg  [3:0]  snap_cmd,
+    output reg  [17:0] snap_addr,
+    output reg  [31:0] snap_wdata,
+    input  wire        snap_frozen,
+    input  wire        snap_ack,
+    input  wire [31:0] snap_rdata
 );
 
 localparam integer AW = $clog2(RAM_WORDS);
@@ -152,7 +171,7 @@ wire          sel_io  = mem_addr[31:28] == 4'h1;
 wire          sel_osd = mem_addr[31:28] == 4'h2;
 wire          wr      = access && (mem_wstrb != 4'd0);
 wire [AW-1:0] wa      = mem_addr[AW+1:2];
-wire [3:0]    reg_a   = mem_addr[5:2];
+wire [3:0]    reg_a   = mem_addr[5:2];      // 16 registers
 
 //-----------------------------------------------------------------------------
 // RAM: one 8-bit block RAM per byte lane (portable byte enables)
@@ -186,7 +205,8 @@ end
 //-----------------------------------------------------------------------------
 // Inputs from the system clock domain
 //-----------------------------------------------------------------------------
-reg [11:0] keys_s1, keys_s;
+reg [15:0] keys_s1, keys_s;
+reg [1:0]  sfrz_s, sack_s;
 reg [31:0] raw_s1, raw_s;
 reg [2:0] cen_s;
 always @(posedge clk) begin
@@ -195,6 +215,8 @@ always @(posedge clk) begin
     raw_s1  <= keyraw;
     raw_s   <= raw_s1;
     cen_s   <= {cen_s[1:0], cen_tgl};
+    sfrz_s  <= {sfrz_s[0], snap_frozen};
+    sack_s  <= {sack_s[0], snap_ack};
 end
 wire tick = cen_s[2] ^ cen_s[1];
 
@@ -519,6 +541,13 @@ always @(posedge clk or negedge rst_n)
         osd_we     <= 1'b0;
         osd_addr   <= 10'd0;
         osd_data   <= 8'd0;
+        snap_freeze <= 1'b0;
+        int_pos    <= INT_POS;
+        cont_on    <= 1'b1;
+        snap_req   <= 1'b0;
+        snap_cmd   <= 4'd0;
+        snap_addr  <= 18'd0;
+        snap_wdata <= 32'd0;
     end else begin
         mem_ready <= access;
         rd_ram    <= sel_ram;
@@ -536,6 +565,19 @@ always @(posedge clk or negedge rst_n)
                 osd_on   <= mem_wdata[0];
                 osd_full <= mem_wdata[1];
             end
+            if (reg_a == 4'd11)
+                snap_freeze <= mem_wdata[0];
+            if (reg_a == 4'd12 && snap_req == sack_s[1]) begin     // ignored while busy
+                snap_cmd  <= mem_wdata[31:28];
+                snap_addr <= mem_wdata[17:0];
+                snap_req  <= !snap_req;
+            end
+            if (reg_a == 4'd13 && snap_req == sack_s[1])
+                snap_wdata <= mem_wdata;
+            if (reg_a == 4'd14) begin
+                int_pos <= {mem_wdata[25:16], mem_wdata[9:0]};
+                cont_on <= !mem_wdata[31];
+            end
         end
         if (wr && sel_osd) begin
             osd_we   <= 1'b1;
@@ -551,7 +593,7 @@ always @(posedge clk or negedge rst_n)
         case (reg_a)
             4'd0:    io_q <= {24'd0, spi_sh};
             4'd1:    io_q <= {spi_busy, 15'd0, spi_div, 7'd0, spi_cs};
-            4'd2:    io_q <= {20'd0, keys_s};
+            4'd2:    io_q <= {16'd0, keys_s};
             4'd3:    io_q <= {15'd0, idle, 6'd0, used};
             4'd4:    io_q <= {30'd0, tape_turbo, tape_on};
             4'd5:    io_q <= {30'd0, osd_full, osd_on};
@@ -559,6 +601,9 @@ always @(posedge clk or negedge rst_n)
             4'd7:    io_q <= {16'd0, marker};
             4'd8:    io_q <= {rec_pend, rec_gap, rec_ovf, 5'd0, rec_delta};
             4'd9:    io_q <= rec_since;
+            4'd11:   io_q <= {30'd0, snap_req != sack_s[1], sfrz_s[1]};
+            4'd13:   io_q <= snap_rdata;
+            4'd14:   io_q <= {!cont_on, 5'd0, int_pos[19:10], 6'd0, int_pos[9:0]};
             default: io_q <= raw_s;
         endcase
     end

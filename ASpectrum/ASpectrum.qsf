@@ -135,7 +135,6 @@ set_location_assignment PIN_AA16 -to SD_CS_N
 # U7 <- adapter J1 (wired)
 set_location_assignment PIN_J1 -to AUDIO_AY
 set_location_assignment PIN_J2 -to AUDIO_BEEPER
-set_location_assignment PIN_D2 -to SW_50_60
 set_location_assignment PIN_C1 -to JOY_UP_N
 set_location_assignment PIN_C2 -to JOY_DOWN_N
 set_location_assignment PIN_B1 -to JOY_LEFT_N
@@ -144,7 +143,6 @@ set_location_assignment PIN_B3 -to JOY_FIRE_N
 
 # Weak pull-ups on inputs that may be unconnected (adapter J1 not wired yet, keyboard RX/TX
 # direction unknown). Not on GND_TIE.
-set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to SW_50_60
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to TURBO_N
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to TAPE_IN
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to KBD_A
@@ -176,7 +174,6 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GND_TIE[0]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GND_TIE[1]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to AUDIO_AY
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to AUDIO_BEEPER
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SW_50_60
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to JOY_UP_N
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to JOY_DOWN_N
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to JOY_LEFT_N

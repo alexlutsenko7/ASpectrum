@@ -21,6 +21,7 @@
 //     0 F12 / keypad / / NumLock   1 keypad 8 / F9 / Up      2 keypad 2 / F10 / Down
 //     3 keypad 4 / Left            4 keypad 6 / Right        5 keypad Enter / Enter
 //     6 F11   7 keypad 5   8 keypad -   9 Esc / Backspace   10 F7 / keypad *   11 F6
+//     12 F2 (save a snapshot)   13 Page Up   14 Page Down   15 F5 (contention on/off)
 //   f1      F1 held (DiagROM when the CPU starts)
 //   f8_tgl  toggles on every F8 press (50/60 Hz video)
 //   cad     Ctrl + Alt + Del held (machine reset)
@@ -40,7 +41,7 @@ module zx_keyboard #(
     input  wire        rx,              // asynchronous
     input  wire        block,           // asynchronous: release all Spectrum keys
     output reg  [39:0] rows,
-    output reg  [11:0] lkeys,
+    output reg  [15:0] lkeys,
     output reg         f1,
     output reg         f8_tgl,
     output reg         cad,
@@ -165,7 +166,7 @@ always @(posedge clk or negedge rst_n)
         k2      <= 8'd0;
         k3      <= 8'd0;
         zx_rows <= {40{1'b1}};
-        lkeys   <= 12'd0;
+        lkeys   <= 16'd0;
         f1      <= 1'b0;
         f8_tgl  <= 1'b0;
         f8_held <= 1'b0;
@@ -185,7 +186,11 @@ always @(posedge clk or negedge rst_n)
                     zx_rows <= ~(one_key(k1) | one_key(k2) | one_key(k3) |
                                  {39'd0, mods[1]} |                              // Left Shift  -> CAPS (bit 0)
                                  ({39'd0, mods[5] | mods[0] | mods[4]} << 36));  // RShift/Ctrl -> SYM (bit 36)
-                    lkeys <= {has(8'h3F),                               // 11 F6
+                    lkeys <= {has(8'h3E),                               // 15 F5
+                              has(8'h4E),                               // 14 Page Down
+                              has(8'h4B),                               // 13 Page Up
+                              has(8'h3B),                               // 12 F2
+                              has(8'h3F),                               // 11 F6
                               has(8'h40) | has(8'h55),                  // 10 F7 / keypad *
                               has(8'h29) | has(8'h2A),                  // 9 Esc / Backspace
                               has(8'h56),                               // 8 keypad -

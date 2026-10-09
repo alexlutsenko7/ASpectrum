@@ -59,4 +59,7 @@ int      fw_patch(FWFILE *w, uint32_t pos, uint8_t b);      /* change a byte alr
 int      fw_close(FWFILE *w);
 int      fw_discard(FWFILE *w);                             /* delete the file being written */
 
+/* the file being written: a tape recording (save.c) or a snapshot (snap.c), never both */
+extern FWFILE fw_file;
+
 #endif

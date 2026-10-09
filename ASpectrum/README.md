@@ -17,7 +17,7 @@ Architecture and decisions: `../docs/PLAN.md`, CPU clock-enable analysis: `../do
 | Keyboard | USB keyboard via the CH9350-style UART module (115200), packet format as the DE10-Lite reference |
 | Joystick | Kempston (port 1F) |
 | Tape | TAPE_IN on the EAR bit (port FE bit 6), as the reference |
-| SD tape loader | PicoRV32 (RV32IMC) at 56 MHz + firmware in `fw/`: OSD file browser (400 entries), plays .tap/.tzx from a microSD card T-state exact, records SAVE output into .tap files; turbo or normal speed (`../docs/SD_TAPE_LOADER.md`) |
+| SD tape loader | PicoRV32 (RV32IMC) at 56 MHz + firmware in `fw/`: OSD file browser (350 entries), plays .tap/.tzx from a microSD card T-state exact, records SAVE output into .tap files; turbo or normal speed; .z80 snapshots: F2 saves, the browser loads (`../docs/SD_TAPE_LOADER.md`) |
 
 ## Controls
 
@@ -26,11 +26,11 @@ Architecture and decisions: `../docs/PLAN.md`, CPU clock-enable analysis: `../do
 | KEY0 (W13) | reset: CPU, ports, ROM reload, tape loader. The video mode is kept. |
 | Ctrl+Alt+Del | reset of the Spectrum only (the tape loader keeps running) |
 | F1 | **held while the CPU starts** (power-up, KEY0, Ctrl+Alt+Del): DiagROM instead of the 128K ROM |
-| F8 | swap 50/60 Hz video |
+| F8 | swap 60/50 Hz video. Power-up default is 640x480@60 (accepted by every monitor; 576p50 is not). |
 | F12 / keypad / / NumLock | SD tape loader browser (keys: `../docs/SD_TAPE_LOADER.md`); keypad 5 / F11 pause-continue, keypad - back one block, F7 / keypad * stop. First browser line [Save to this folder]: name, then recording until F12 |
 | F6 | tape speed for loading and saving: turbo (default) / normal |
+| F2 | save a snapshot of the whole machine: type a name, Enter -> NAME.Z80 in the browser's current folder. Load: F12, choose the .z80, Enter |
 | KEY1 (Y13) | not used |
-| S1 50/60 | default video mode (high = 50 Hz). Not wired yet: weak pull-up -> 50 Hz. |
 | TURBO_N | low = 28 MHz CPU (external tape simulator; pull-up = normal speed). The SD loader sets turbo itself while playing or saving a block (unless F6 chose normal speed). |
 | LED | on = turbo; fast blink = no ROM image in the flash (program the .jic) |
 
@@ -83,4 +83,4 @@ If the LED blinks fast after loading a .sof, the flash has no ROM image: program
   T-state exact (VGA is not locked to the Spectrum frame). Same as the DE10-Lite reference.
 - Keyboard module UART direction not confirmed: both lines are inputs with pull-ups, RX = KBD_A AND KBD_B
   (works whichever line carries the data). Nothing is sent to the module.
-- Joystick, AY/beeper audio and S1 need the J1 -> U7 wiring.
+- Joystick and AY/beeper audio need the J1 -> U7 wiring. The adapter's 50/60 switch S1 is not used (D2 unassigned).
