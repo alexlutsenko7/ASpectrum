@@ -67,8 +67,8 @@ C.push(table([3000, 6360], ["Item", "Value"], [
   ["I/O board", "User's QM_Atrix adapter: VGA (2 bits per colour), AY + beeper audio to an amplifier module, Kempston DB9, USB keyboard module (UART), tape in, turbo input, 50/60 switch; plus an Adafruit microSD BFF for the tape loader"],
   ["CPU", "T80 (Z80, VHDL, from the MiSTer ZX Spectrum core), 3.5469 MHz or 28 MHz"],
   ["Tape loader CPU", "PicoRV32 (RISC-V RV32IMC), 56 MHz, 32 KB block RAM, firmware in C"],
-  ["Resources used", "9,233 logic elements (60 %), 55 of 56 M9K, 2 PLLs, 71 pins"],
-  ["Timing", "worst setup slack +0.52 ns (112 MHz, slow 85 °C corner), worst hold +0.15 ns, no negative slack at any corner, no unconstrained paths"],
+  ["Resources used", "9,274 logic elements (60 %), 55 of 56 M9K, 2 PLLs, 71 pins"],
+  ["Timing", "worst setup slack +0.65 ns (112 MHz, slow 85 °C corner), worst hold +0.11 ns, no negative slack at any corner, no unconstrained paths"],
   ["Tools", "Quartus Prime 25.1std Lite, Questa FSE, xPack riscv-none-elf-gcc 15.2"],
 ]));
 
@@ -113,7 +113,8 @@ C.push(b("**CEN generator:** a 32-bit phase accumulator at 112 MHz. Normal speed
 C.push(b("**Turbo sources:** the TURBO_N pin (external tape simulator, active low) or the SD tape loader while it plays or saves a block; F6 switches the loader to normal speed."));
 C.push(b("**Hold:** the tape loader can stop the CEN (like a memory wait) while it needs time during a save; the Spectrum does not notice, because its T-states stop too."));
 C.push(b("**Snapshot freeze:** the tape loader can stop the CEN at an instruction boundary (section 9.5)."));
-C.push(b("**Memory contention (Level 1, 128K timing):** a frame T-state counter restarts at each interrupt and counts real T-states. At the start of each memory cycle to 4000-7FFF (or to C000-FFFF while an odd RAM page is paged in), and in the I/O patterns of the 128K, the CEN is withheld by 6, 5, 4, 3, 2, 1, 0, 0 T-states during the 128 contended T-states of each of the 192 picture lines (from T-state 14,361). Those T-states are lost, as on the real machine, and the tape player counts them too. Off in turbo; F5 switches it off. Not emulated: the internal contended T-states of some instructions, the floating bus."));
+C.push(b("**Memory contention (Level 1, 128K timing):** a frame T-state counter restarts at each interrupt and counts real T-states. At the start of each memory cycle to 4000-7FFF (or to C000-FFFF while an odd RAM page is paged in), and in the I/O patterns of the 128K, the CEN is withheld by 6, 5, 4, 3, 2, 1, 0, 0 T-states during the 128 contended T-states of each of the 192 picture lines (from T-state 14,361). Those T-states are lost, as on the real machine, and the tape player counts them too. Off in turbo; F5 switches it off. Not emulated: the internal contended T-states of some instructions."));
+C.push(b("**Floating bus:** an I/O read of a port nothing answers (e.g. port FF) returns the byte the ULA is fetching at that moment, as on a real 128K: bitmap and attribute bytes of the displayed screen at T-states 2-5 of each 8 within the 128 picture T-states of a line, FF elsewhere. The byte is read from SDRAM during the I/O cycle. On together with contention (F5), off in turbo. Not emulated: ULA snow (DiagROM's snow test fails)."));
 C.push(b("**Stall:** if a memory read is not finished when the CPU needs its data, the CEN pulse is held back (\"owed\") and given as soon as the data is there. At normal speed this never happens (the SDRAM is always fast enough); in turbo it costs a clock now and then."));
 C.push(b("**Timing constraints:** CEN pulses are never closer than 4 clocks, so paths inside the T80 get a 4-clock multicycle (the T80 alone reaches 63.5 MHz on this chip, so 4 x 8.9 ns is ample)."));
 
@@ -277,14 +278,15 @@ C.push(table([3100, 6260], ["Test", "What it shows"], [
   ["fw/test/run_host_test.sh", "Firmware on the PC against generated FAT16/FAT32 card images (fragmented files, long names): every listing and every TAP/TZX signal compared with an independent Python reference; recordings of real TAP files (noise, headerless, several saves, 1 s pauses in turbo, empty) written and checked by an independent FAT checker; snapshots: reference .z80 files (versions 1-3, 48K/128K, stored pages, bad files) loaded into a model of the hardware, and save + reload round trips checked by an independent .z80 decoder"],
   ["sim/run_snap_sim.sh", "zx_bus + T80 + SDRAM: a Z80 test program (prefixes, DD CB, block instructions, EXX, IM 2, HALT, paging, AY) run undisturbed, with random freezes and reads, and with random freezes and full restores (LOAD): identical results"],
   ["sim/run_cont_sim.sh", "zx_bus + T80 + SDRAM: 8,000 NOPs in contended RAM run 57 per line in the border and 41 per picture line (the known Spectrum result), 57 everywhere with contention off"],
+  ["sim/run_float_sim.sh", "zx_bus + T80 + SDRAM: 6,000 IN A,(FF) against a reference of the 128K floating bus (incl. contended port addresses); all FF with it switched off"],
   ["sim/run_snapsys_sim.sh", "Whole machine with the firmware: F2, a typed name, the snapshot written to the SD card model, F12 + Enter loads it back; loaded state equals the saved state; the file is checked by the independent decoder"],
   ["DDR_TEST, VGA_TEST", "Earlier stand-alone projects that proved the SDRAM controller and the video modes on the hardware"],
-  ["Hardware", "128K boots and runs (6 October); games load from the SD card in turbo and at normal speed, saving to the card works (8 October)"],
+  ["Hardware", "128K boots and runs (6 October); games load from the SD card in turbo and at normal speed, saving to the card works (8 October); 60 Hz start, contention and the 50 Hz border alignment confirmed with Aquaplane, floating bus confirmed with Sidewize (9 October)"],
 ]));
 
 // ---------------------------------------------------------------- 13
 C.push(h1("13. Known limitations"));
-C.push(b("Memory contention only at Level 1 (memory and I/O cycles; not the internal T-states some instructions contend), no floating bus: timing-critical demos are not exact. The 50 Hz interrupt position is tuned (Aquaplane) rather than calculated; other border-effect games may need Page Up / Page Down."));
+C.push(b("Memory contention only at Level 1 (memory and I/O cycles; not the internal T-states some instructions contend); no ULA snow: timing-critical demos are not exact. The 50 Hz interrupt position is tuned (Aquaplane) rather than calculated; other border-effect games may need Page Up / Page Down."));
 C.push(b("The AY output is mono; MIC is not on a pin (saving goes to the SD card only)."));
 C.push(b("Tape loader: TZX generalized data (0x19), CSW (0x18) and the select-block menu (0x28) are not played; text and message blocks are not shown; LOAD \"\" is not typed automatically; at most 350 entries per folder; exFAT cards are not supported."));
 C.push(b("Saving: ROM format only, 8.3 names, no overwrite, no file dates. Snapshots: .z80 only (no .sna), no overwrite, the video frame position is not kept."));

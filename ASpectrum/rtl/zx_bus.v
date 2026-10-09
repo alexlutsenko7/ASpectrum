@@ -34,7 +34,7 @@
 //                       TAPE_IN pin for 75 ms after each edge, else the beeper
 //   read  FFFD          AY register
 //   read  A0=1 A5=0     Kempston joystick (port 1F)
-//   other reads         0xFF (floating bus not emulated yet)
+//   other reads         floating bus (see below), 0xFF in turbo or with contention off
 //
 // Interrupt: 32 T-states long. Source: the video's frame mark in 50 Hz video mode
 // (a real 50.00 Hz frame, placed as on a 128K: zx_video INT_LINE / INT_PX), otherwise a counter of 70908 T-states (128K frame), which
@@ -52,7 +52,14 @@
 //   C:3 (checked at the T-states 0, 1, 2, 3 of the cycle). The CPU's cen is withheld
 //   for the delay; those ticks are not owed (they are lost, as on the real machine).
 //   Not done (Level 2): the extra internal T-states some instructions put an address
-//   on the bus for (e.g. INC HL, PUSH, JR), refresh, the floating bus.
+//   on the bus for (e.g. INC HL, PUSH, JR), refresh.
+//
+// Floating bus (128K timing, on with contention): an I/O read of a port nothing
+//   answers (A0 = 1, not the AY at FFFD, A5 = 1 - e.g. port FF) returns the byte the
+//   ULA fetches at the second T-state of the I/O cycle (Fuse samples there): with
+//   tl = T-state - 14364 - 228 * row (row 0..191, tl 0..127), tl mod 8 = 2 bitmap,
+//   3 attribute, 4 bitmap + 1, 5 attribute + 1 of column 2 * (tl / 8); otherwise FF.
+//   The byte is read from SDRAM (displayed page 5 / 7) during the I/O cycle.
 //
 // Snapshots (.z80 save/load by the tape loader CPU, fw/snap.c):
 //   snap_freeze stops the CPU at the next instruction boundary: in T2 of an
@@ -217,6 +224,13 @@ wire [32:0] dds_next = {1'b0, dds} + {1'b0, (turbo_s[2] ? INC_TURBO : INC_NORMAL
 wire        stall;
 reg         frz_q;                      // snapshot freeze: CPU stopped at an instruction boundary
 reg  [2:0]  cont_cnt;                   // contention: T-states still to withhold
+reg  [7:0]  hpos;                       // (t + 3) mod 228: 0 = first contended T-state of a line
+reg  [8:0]  vline;                      // (t + 3) / 228: lines 63..254 are contended
+reg  [2:0]  chk;                        // clocks since the cen that started a CPU T-state
+reg  [2:0]  io_k;                       // T-states since the start of this M-cycle
+reg         fb_pend, fb_valid;          // floating bus: SDRAM read wanted / byte in fb_data
+reg  [17:0] fb_addr;
+reg  [7:0]  fb_data;
 
 // cen_raw: a T-state passes (frame time); cen: the CPU takes it (not lost to contention)
 wire cen_raw = (tick | owed) & (since == 2'd3) & !stall & !hold_s[1] & !frz_q & cpu_rst_n;
@@ -254,6 +268,7 @@ reg  [15:0] a_lat;                      // address of this M-cycle
 reg         inta;                       // interrupt acknowledge M1
 reg         smp_io;                     // I/O cycle      (sampled 2 clocks after the T1 cen)
 reg         smp_nr;                     // memory access (read or write) in this M-cycle (same)
+reg         smp_iow;                    // write in this M-cycle (same; for the floating bus)
 reg         t1_2nd, t2_2nd, t2_3rd;     // 2nd clock of T1 / T2, 3rd clock of T2 (single-clock paths)
 reg         smp_wr2, smp_io2;           // Write/IORQ     (sampled 2 clocks after the T2 cen)
 reg  [7:0]  smp_do;                     // data out       (sampled 2 clocks after the T2 cen)
@@ -263,6 +278,16 @@ reg  [7:0]  smp_do;                     // data out       (sampled 2 clocks afte
 //-----------------------------------------------------------------------------
 reg  [7:0]  p7ffd;
 assign screen7 = p7ffd[3];
+
+// floating bus (see the header): which byte the ULA fetches now
+wire        fb_on   = cont_s[1] & !turbo_s[2];              // as contention (F5, not in turbo)
+wire        fb_port = a_lat[0] && a_lat[5] && !(a_lat[15] && a_lat[14] && !a_lat[1]);   // nothing answers
+wire [7:0]  fb_tl   = hpos - 8'd3;                              // T-state in the line from the first picture T-state
+wire [7:0]  fb_row  = vline[7:0] - 8'd63;
+wire        fb_scr  = hpos >= 8'd3 && hpos < 8'd131 && vline >= 9'd63 && vline < 9'd255 &&
+                      fb_tl[2:0] >= 3'd2 && fb_tl[2:0] <= 3'd5;
+wire        fb_attr = fb_tl[0];                                 // 3, 5: attribute; 2, 4: bitmap
+wire [4:0]  fb_col  = {fb_tl[6:3], fb_tl[2]};                   // 2 * (tl / 8) (+1 for 4, 5)
 
 function [17:0] map_addr(input [15:0] a, input [7:0] pg, input diag);
     case (a[15:14])
@@ -282,6 +307,7 @@ endfunction
 reg         rd_pend, rd_done, op_busy, op_we;
 reg         wb_valid;
 reg         op_snap, smem_req, smem_done, loaded;
+reg         op_fb;
 wire        unfreeze = frz_q & !sfrz_s[1];  // last clock of a freeze
 wire [17:0] sa = snap_addr;
 reg  [17:0] wb_addr, rd_addr;
@@ -300,6 +326,12 @@ always @(posedge clk or negedge cpu_rst_n)
         inta     <= 1'b0;
         smp_io   <= 1'b0;
         smp_nr   <= 1'b0;
+        smp_iow  <= 1'b0;
+        fb_pend  <= 1'b0;
+        fb_valid <= 1'b0;
+        fb_addr  <= 18'd0;
+        fb_data  <= 8'hFF;
+        op_fb    <= 1'b0;
         t1_2nd   <= 1'b0;
         t2_2nd   <= 1'b0;
         t2_3rd   <= 1'b0;
@@ -343,6 +375,17 @@ always @(posedge clk or negedge cpu_rst_n)
         if (t1_2nd) begin
             smp_io <= cpu_iorq;
             smp_nr <= !cpu_noread | cpu_write;
+            smp_iow <= cpu_write;
+        end
+
+        // floating bus: at the 2nd T-state of an I/O read of an unanswered port, the ULA's byte
+        if (mstart) begin
+            fb_pend  <= 1'b0;
+            fb_valid <= 1'b0;
+        end else if (chk[0] && io_k == 3'd1 && smp_io && !smp_iow && !inta && fb_on && fb_port) begin
+            fb_pend <= fb_scr;
+            fb_addr <= {1'b0, (p7ffd[3] ? 3'd7 : 3'd5),
+                        fb_attr ? {4'b0110, fb_row[7:3], fb_col} : {1'b0, fb_row[7:6], fb_row[2:0], fb_row[5:3], fb_col}};
         end
         if (t2_2nd) begin
             smp_wr2 <= cpu_write;
@@ -379,7 +422,9 @@ always @(posedge clk or negedge cpu_rst_n)
             if (sd_ack) begin
                 op_busy <= 1'b0;
                 op_snap <= 1'b0;
+                op_fb   <= 1'b0;
                 if (op_snap)     smem_done <= 1'b1;
+                else if (op_fb)  begin fb_data <= sd_dout; fb_valid <= 1'b1; end
                 else if (!op_we) rd_done   <= 1'b1;
             end
         end else if (wb_valid) begin
@@ -405,6 +450,14 @@ always @(posedge clk or negedge cpu_rst_n)
                 sh_addr  <= sa[12:0];
                 sh_data  <= snap_wdata[7:0];
             end
+        end else if (fb_pend && !mstart) begin             // floating bus byte (I/O cycle)
+            fb_pend <= 1'b0;
+            op_busy <= 1'b1;
+            op_we   <= 1'b0;
+            op_fb   <= 1'b1;
+            sd_req  <= 1'b1;
+            sd_we   <= 1'b0;
+            sd_addr <= fb_addr;
         end else if (rd_pend && !mstart) begin
             rd_pend <= 1'b0;
             op_busy <= 1'b1;
@@ -440,7 +493,7 @@ always @(posedge clk)
     if (!a_lat[0])                                   io_data <= {1'b1, ear, 1'b1, kb_and};
     else if (a_lat[15] && a_lat[14] && !a_lat[1])    io_data <= ay_dout;
     else if (!a_lat[5])                              io_data <= {3'b000, joy};
-    else                                             io_data <= 8'hFF;
+    else                                             io_data <= fb_valid ? fb_data : 8'hFF;   // floating bus
 
 always @(posedge clk or negedge cpu_rst_n)
     if (!cpu_rst_n) begin
@@ -654,10 +707,6 @@ always @(posedge clk or negedge cpu_rst_n)
 //-----------------------------------------------------------------------------
 // Memory contention (Level 1, see the header)
 //-----------------------------------------------------------------------------
-reg  [7:0] hpos;                        // (t + 3) mod 228: 0 = first contended T-state of a line
-reg  [8:0] vline;                       // (t + 3) / 228: lines 63..254 are contended
-reg  [2:0] chk;                         // clocks since the cen that started a CPU T-state
-reg  [2:0] io_k;                        // T-states since the start of this M-cycle
 
 wire       cont_on  = cont_s[1] & !turbo_s[2];
 wire       in_scr   = vline >= 9'd63 && vline < 9'd255 && hpos < 8'd128;

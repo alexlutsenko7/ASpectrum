@@ -73,7 +73,7 @@ const children = [
     ["**F2**", "Saves a snapshot of the whole machine as a .z80 file",
       ["The Spectrum stops at once and asks for a name. See \"Saving and loading snapshots\" below."]],
     ["**F5**", "Switches memory contention on (default) / off",
-      ["Contention is the slowing of the processor while the screen is drawn, as on a real Spectrum; timing-critical games and border effects need it. Shows \"Contention: on\" or \"off\" for 4 seconds. Back to on after KEY0 or power-up. Never active in turbo."]],
+      ["Contention is the slowing of the processor while the screen is drawn, as on a real Spectrum; timing-critical games and border effects need it. F5 also switches the floating bus (port FF reads the screen, as on the real machine; a few games use it). Shows \"Contention: on\" or \"off\" for 4 seconds. Back to on after KEY0 or power-up. Never active in turbo."]],
     ["**F6**", "Switches tape loading and saving between turbo (default) and normal speed",
       ["Shows \"Speed: normal\" or \"Speed: turbo\" on the bottom row for 2 seconds. Works at any time; a tape that is playing or a block being saved changes speed at once. Back to turbo after KEY0 or power-up."]],
     ["**F8**", "Swaps the video between 50 Hz (720x576) and 60 Hz (640x480)",

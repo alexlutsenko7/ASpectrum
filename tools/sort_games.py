@@ -2,9 +2,9 @@
 """sort_games.py ROOT [--max N] [--dry-run] -- prepare a game collection for the SD tape loader
 
 For every folder under ROOT:
-  1. delete every file that is not *.tap.zip / *.tzx.zip / *.tap / *.tzx (any letter case;
-     already unpacked tapes from an earlier, interrupted run are kept);
-  2. unpack the .tap / .tzx files out of each zip into the zip's folder (other files in the zip,
+  1. delete every file that is not *.tap.zip / *.tzx.zip / *.z80.zip / *.tap / *.tzx / *.z80 (any letter
+     case; already unpacked files from an earlier, interrupted run are kept);
+  2. unpack the .tap / .tzx / .z80 files out of each zip into the zip's folder (other files in the zip,
      e.g. .txt / .scr, are skipped; folders inside the zip are flattened), then delete the zip.
      A name that already exists with different contents gets " (2)", " (3)", ...; an identical
      file is not stored twice. A zip that cannot be read or has no tape in it is kept and reported;
@@ -12,14 +12,27 @@ For every folder under ROOT:
      the first N (sorted by name, as the browser sorts) stay in "a", the next N go to "a1",
      then "a2", ...; folders left empty are removed.
 
+Files named in protected.txt (in ROOT or up to two levels above) are never deleted, unpacked or moved.
 Prints a summary; problem zips are listed in ROOT/sort_games.log."""
 import argparse
 import os
 import sys
 import zipfile
 
-TAPE = (".tap", ".tzx")
-KEEP = (".tap.zip", ".tzx.zip")
+TAPE = (".tap", ".tzx", ".z80")                # .z80 snapshots load from the browser too
+KEEP = (".tap.zip", ".tzx.zip", ".z80.zip")
+
+
+def load_protected(folder):
+    """names (lower case) from protected.txt in folder or up to two levels above it"""
+    d = os.path.abspath(folder)
+    for _ in range(3):
+        p = os.path.join(d, "protected.txt")
+        if os.path.isfile(p):
+            with open(p, encoding="utf-8") as f:
+                return {l.strip().lower() for l in f if l.strip() and not l.lstrip().startswith("#")}
+        d = os.path.dirname(d)
+    return set()
 
 
 def unique_name(folder, name, data):
@@ -41,6 +54,7 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
     root = os.path.abspath(a.root)
+    protected = load_protected(root)
     log = []
     n_del = n_zip = n_out = n_dup = n_bad = 0
 
@@ -48,7 +62,7 @@ def main():
     for d, _, files in os.walk(root):
         for f in sorted(files):
             p = os.path.join(d, f)
-            if f == "sort_games.log" and d == root:
+            if (f == "sort_games.log" and d == root) or f.lower() in protected:
                 continue
             if not f.lower().endswith(KEEP + TAPE):           # unpacked tapes (earlier run) stay
                 n_del += 1
@@ -56,7 +70,7 @@ def main():
                     os.remove(p)
         for f in sorted(os.listdir(d)):
             p = os.path.join(d, f)
-            if not (os.path.isfile(p) and f.lower().endswith(KEEP)):
+            if not (os.path.isfile(p) and f.lower().endswith(KEEP)) or f.lower() in protected:
                 continue
             try:
                 with zipfile.ZipFile(p) as z:
@@ -90,8 +104,8 @@ def main():
     n_split = 0
     folders = [d for d, _, _ in os.walk(root)]
     for d in sorted(folders, key=lambda x: -x.count(os.sep)):
-        files = sorted((f for f in os.listdir(d) if os.path.isfile(os.path.join(d, f)) and f != "sort_games.log"),
-                       key=str.lower)
+        files = sorted((f for f in os.listdir(d) if os.path.isfile(os.path.join(d, f)) and f != "sort_games.log"
+                        and f.lower() not in protected), key=str.lower)
         if len(files) <= a.max or d == root:
             continue
         n_split += 1

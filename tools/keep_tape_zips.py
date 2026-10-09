@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""keep_tape_zips.py -- in a folder tree, keep only *.tap.zip and *.tzx.zip files and delete everything else.
+"""keep_tape_zips.py -- in a folder tree, keep only tapes and snapshots (*.tap, *.tzx, *.z80, also zipped:
+*.tap.zip, *.tzx.zip, *.z80.zip) and delete everything else.
 
   python3 keep_tape_zips.py FOLDER              dry run: lists what would be deleted, changes nothing
   python3 keep_tape_zips.py FOLDER --delete     really deletes (asks for "yes" first)
@@ -7,16 +8,29 @@
                                                 also removes folders left empty
 
 Names are matched without regard to case (Game.TAP.ZIP is kept). All subfolders are processed.
+Files named in protected.txt (in FOLDER or up to two levels above) are never deleted.
 Works on Windows (python keep_tape_zips.py D:\\Games) and in WSL / Linux."""
 import argparse
 import os
 import sys
 
-KEEP = (".tap.zip", ".tzx.zip")
+KEEP = (".tap.zip", ".tzx.zip", ".z80.zip", ".tap", ".tzx", ".z80")   # .z80 = snapshots (F12 browser loads them)
+
+
+def load_protected(folder):
+    """names (lower case) from protected.txt in folder or up to two levels above it"""
+    d = os.path.abspath(folder)
+    for _ in range(3):
+        p = os.path.join(d, "protected.txt")
+        if os.path.isfile(p):
+            with open(p, encoding="utf-8") as f:
+                return {l.strip().lower() for l in f if l.strip() and not l.lstrip().startswith("#")}
+        d = os.path.dirname(d)
+    return set()
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Keep only *.tap.zip and *.tzx.zip files in a folder tree.")
+    ap = argparse.ArgumentParser(description="Keep only .tap/.tzx/.z80 files (plain or zipped) in a folder tree.")
     ap.add_argument("folder")
     ap.add_argument("--delete", action="store_true", help="really delete (default: dry run)")
     ap.add_argument("--empty-dirs", action="store_true", help="also remove folders that end up empty")
@@ -27,11 +41,12 @@ def main():
     if not os.path.isdir(root):
         sys.exit("not a folder: " + root)
 
+    protected = load_protected(root)
     keep, drop, drop_bytes, by_ext = 0, [], 0, {}
     for d, _, files in os.walk(root):
         for f in files:
             p = os.path.join(d, f)
-            if f.lower().endswith(KEEP):
+            if f.lower().endswith(KEEP) or f.lower() in protected:
                 keep += 1
             else:
                 drop.append(p)
@@ -40,7 +55,7 @@ def main():
                 by_ext[ext] = by_ext.get(ext, 0) + 1
 
     print("folder:  %s" % root)
-    print("keep:    %d files (*.tap.zip, *.tzx.zip)" % keep)
+    print("keep:    %d files (.tap, .tzx, .z80, plain or zipped)" % keep)
     print("delete:  %d files, %.1f MB" % (len(drop), drop_bytes / 1e6))
     for ext, n in sorted(by_ext.items(), key=lambda x: -x[1])[:25]:
         print("         %6d  .%s" % (n, ext))

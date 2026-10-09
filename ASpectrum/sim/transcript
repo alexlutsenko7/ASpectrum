@@ -1,6 +1,6 @@
 # ** Note: (vsim-220) 'C:/Altera/questa_fse/win64/../modelsim.ini' is used as the ini file.
 # vsim -c -quiet -lib work_snap -t ps tb_snap -do "run -all; quit -f" 
-# Start time: 12:20:38 on Oct 09,2026
+# Start time: 14:13:53 on Oct 09,2026
 # ** Note: (vsim-3812) Design is being optimized...
 # ** Note: (vopt-220) 'C:/Altera/questa_fse/win64/../modelsim.ini' is used as the ini file.
 # //  Questa Altera Starter FPGA Edition-64
@@ -53,12 +53,12 @@
 #    Time: 0 ps  Iteration: 1  Instance: /tb_snap/u_bus/u_cpu/u_t80
 #            201617435 SDRAM MODEL: mode register set, CL=2
 #          44294794416 run 0 done: 0 freezes (0 in HALT, 0 inside LDIR), 0 LOADs, INTs 100, checksum 5bb7, PC 010d
-#          89317466352 run 1 done: 100 freezes (0 in HALT, 6 inside LDIR), 0 LOADs, INTs 100, checksum 5bb7, PC 010d
-#         134764986096 run 2 done: 100 freezes (2 in HALT, 7 inside LDIR), 100 LOADs, INTs 100, checksum 5bb7, PC 010d
+#          88945615152 run 1 done: 60 freezes (0 in HALT, 0 inside LDIR), 0 LOADs, INTs 100, checksum 5bb7, PC 010d
+#         133851865968 run 2 done: 60 freezes (0 in HALT, 0 inside LDIR), 60 LOADs, INTs 100, checksum 5bb7, PC 010d
 # run 1 vs run 0: 0 differences
 # run 2 vs run 0: 0 differences
 # SNAPSHOT TEST PASSED
 # ** Note: $finish    : tb_snap.sv(318)
-#    Time: 134764986096 ps  Iteration: 1  Instance: /tb_snap
-# End time: 12:24:55 on Oct 09,2026, Elapsed time: 0:04:17
+#    Time: 133851865968 ps  Iteration: 1  Instance: /tb_snap
+# End time: 14:18:02 on Oct 09,2026, Elapsed time: 0:04:09
 # Errors: 0, Warnings: 16

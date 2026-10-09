@@ -15,7 +15,8 @@ still worked, whether KEY0 or only a power cycle helped, and what the screen/LED
 ## Design limitations (by design or not done yet)
 
 - Memory contention is emulated at Level 1 (2026-10-09: memory and I/O cycles, 128K timing; F5 switches it off);
-  not the internal contended T-states of some instructions (DJNZ, PUSH, INC rr, ...), no floating bus. The 50 Hz
+  not the internal contended T-states of some instructions (DJNZ, PUSH, INC rr, ...). Floating bus emulated
+  (2026-10-09, 128K timing, with contention; Sidewize, which syncs with it, works on the hardware). Not emulated: ULA snow (I register in 40-7F); DiagROM's snow test fails. The 50 Hz
   frame interrupt sits at VGA line 24, pixel 166, measured with Aquaplane's horizon stripe (calculated for a real
   128K: line 12.7; the ~11.5 lines between are most likely the missing Level-2 contention). Other border-effect
   games may need Page Up / Page Down (1/8 line steps, browser closed). In 60 Hz mode border effects cannot line up.

@@ -211,3 +211,15 @@ Open (user's decision): how the adapter physically connects to the Cyclone IV bo
   TV beam is ~40 % slower than the Spectrum's, so one INT delay aligns border effects at one height only (Aquaplane
   OK, multi-band / loading stripes drift up to ~8 rows); 3.6 lines per row (4/3 alternating, 691 lines) keeps them
   exact; a border buffer would decouple them but needs ~3 M9K (1 free). 576p stays the exact mode.
+- Level-1 contention (F5) and the floating bus (same switch) added; DiagROM's floating bus test was failing before
+  (snow test fails by design, not emulated). Sidewize (syncs with the floating bus) works on the hardware.
+- Game collection cleanup (tools/sort_games.py, then by hand): 31 broken / bad-checksum TAPs, 1,565 TAPs that have a
+  TZX of the same game, 327 TAPs with PAUSE 0 in their BASIC loader (Aqua Plane.tap: a modified emulator version
+  that waits for a key with invisible text), and a C64 tape (Sidewize.tap) deleted; list in Games/deleted_taps.txt.
+- Analysed, not done (user: not worth it now): TZX 0x19/0x18 (1 / 0 files in the collection), 48K timing mode (a real
+  128K keeps 128K timing in 48 BASIC; auto-switch on 7FFD lock or a machine key would be "better than real").
+- Game names shortened to the browser's 27 characters (tools/shorten_names.py: abbreviations S1/P2/Alt, brackets
+  dropped, middle cut keeping the side/part; clashes get a publisher tag or " 2"): 4,561 files, list in
+  Games/renamed_files.txt.
+- Game tools keep .z80 / .z80.zip (snapshots load from the browser) and honour Games/protected.txt (names never
+  deleted, renamed or moved; first entries: the user's Sidewize.z80 / Sidewize[a].z80 in games/s2).
