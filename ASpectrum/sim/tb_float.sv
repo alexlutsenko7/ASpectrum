@@ -3,11 +3,12 @@
 //
 // Screen page 5 gets a known pattern (testbench backdoor); mk_floatprog.py runs
 // 3000 x IN A,(FF) after each interrupt. For every port FF read the testbench
-// computes the expected byte with its own T-state counter (Fuse's rule, 128K):
-// sampled at the 2nd T-state of the I/O cycle (after the C:1 contention when A, the
-// port's high byte, is 40-7F); tl = t - 14364 - 228 * row,
-// row 0..191, tl 0..127: tl mod 8 = 2 bitmap, 3 attribute, 4 / 5 the same for the
-// next column (2 * (tl / 8)); else FF. Then contention / floating bus off: all FF.
+// computes the expected byte with its own T-state counter (Fuse 1.6's rule, 128K):
+// read after all of the I/O cycle's contention, at the start of its 4th T-state
+// (readport: early C:1 + 1; late C:1,+1,C:1,+1,C:1 when A, the port's high byte, is
+// 40-7F, else + 2); x = t - 14362 - 228 * row, row 0..191, x 0..127: x mod 8 =
+// 2 bitmap, 3 attribute, 4 / 5 the same for the next column (2 * (x / 8)); else FF.
+// Then contention / floating bus off: all FF.
 //=============================================================================
 `timescale 1ns/1ps
 
@@ -141,7 +142,7 @@ function automatic [7:0] scr(input integer off);       // the pattern in page 5
     begin v = (off * 7 + 3) & 8'hFF; scr = (v == 8'hFF) ? 8'h5A : v; end
 endfunction
 
-// 128K contention delay at T-state t (port high byte 40-7F: C:1 before the sample)
+// 128K contention delay at T-state t (ula_contention_no_mreq)
 function automatic integer cdelay(input integer t);
     integer rel;
     begin
@@ -155,7 +156,7 @@ function automatic [7:0] expect_fb(input integer t);
     integer rel, row, tl, col;
     begin
         expect_fb = 8'hFF;
-        rel = t - 14364;
+        rel = t - 14362;
         if (rel >= 0) begin
             row = rel / 228; tl = rel % 228;
             if (row < 192 && tl < 128) begin
@@ -179,8 +180,15 @@ always @(posedge clk) begin
     if (checking && u_bus.cen && u_bus.cpu_ts == 3'd2 && u_bus.smp_io && !u_bus.smp_iow && u_bus.a_lat[7:0] == 8'hFF) begin
         n_rd++;
         if (u_bus.cpu_din != 8'hFF) n_scr++;
-        // sampled at the 2nd T-state of the I/O cycle; a contended high byte (40-7F, from A) delays it first
-        smp_t = s_start + 1 + ((cont_en && u_bus.a_lat[15:14] == 2'b01) ? cdelay(s_start) : 0);
+        // Fuse readport: early + late contention, then the read (high byte 40-7F, from A: contended)
+        smp_t = s_start;
+        if (cont_en && u_bus.a_lat[15:14] == 2'b01) begin
+            smp_t = smp_t + cdelay(smp_t) + 1;
+            smp_t = smp_t + cdelay(smp_t) + 1;
+            smp_t = smp_t + cdelay(smp_t) + 1;
+            smp_t = smp_t + cdelay(smp_t);
+        end else
+            smp_t = smp_t + 3;
         if (u_bus.a_lat[15:14] == 2'b01) n_cont++;
         if (u_bus.cpu_din !== (cont_en ? expect_fb(smp_t) : 8'hFF)) begin
             bad++;
