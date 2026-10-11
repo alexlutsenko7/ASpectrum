@@ -56,10 +56,17 @@
 //
 // Floating bus (128K timing, on with contention): an I/O read of a port nothing
 //   answers (A0 = 1, not the AY at FFFD, A5 = 1 - e.g. port FF) returns the byte the
-//   ULA fetches at the second T-state of the I/O cycle (Fuse samples there): with
-//   tl = T-state - 14364 - 228 * row (row 0..191, tl 0..127), tl mod 8 = 2 bitmap,
-//   3 attribute, 4 bitmap + 1, 5 attribute + 1 of column 2 * (tl / 8); otherwise FF.
-//   The byte is read from SDRAM (displayed page 5 / 7) during the I/O cycle.
+//   ULA fetches at the start of the 4th T-state of the I/O cycle, after all of its
+//   contention (Fuse 1.6 readport: early C:1 + 1 T, late C:1,+1,C:1,+1,C:1 for a
+//   contended high byte, else 2 T): with x = T-state - 14362 - 228 * row (row 0..191,
+//   x 0..127), x mod 8 = 2 bitmap, 3 attribute, 4 bitmap + 1, 5 attribute + 1 of
+//   column 2 * (x / 8); otherwise FF. A contended poll (high byte 40-7F) thus sees
+//   only attributes or FF - games that sync on an attribute (Sidewize) rely on it.
+//   The bridge decides at the start of T2 (hpos then, plus the late contention it
+//   will get) and reads the byte from SDRAM (displayed page 5 / 7) before the CPU
+//   takes it at the end of the wait state. (2026-10-11: was the byte at T2, tl =
+//   T - 14364: half of the contended polls saw a bitmap byte, Sidewize synced early
+//   and its player flickered.)
 //
 // Snapshots (.z80 save/load by the tape loader CPU, fw/snap.c):
 //   snap_freeze stops the CPU at the next instruction boundary: in T2 of an
@@ -282,12 +289,25 @@ assign screen7 = p7ffd[3];
 // floating bus (see the header): which byte the ULA fetches now
 wire        fb_on   = cont_s[1] & !turbo_s[2];              // as contention (F5, not in turbo)
 wire        fb_port = a_lat[0] && a_lat[5] && !(a_lat[15] && a_lat[14] && !a_lat[1]);   // nothing answers
-wire [7:0]  fb_tl   = hpos - 8'd3;                              // T-state in the line from the first picture T-state
+// hpos at Fuse's read point, from hpos at the start of T2: the late contention steps
+// (delay, +1 per T-state). Two pipeline stages, sampled at chk[1] (hpos changes at a
+// cen_raw, the next one comes >= 4 clocks later). h + its delay: in a contended line
+// and h < 128, phases 0..5 wait for phase 6 (low bits 110), 6 and 7 do not wait.
+function [7:0] fb_c(input [7:0] h, input scrl);
+    fb_c = (scrl && !h[7] && !(h[2] && h[1])) ? {h[7:3], 3'b110} : h;
+endfunction
+wire        fb_scrl = vline >= 9'd63 && vline < 9'd255;
+wire        fb_hic  = a_lat[15:14] == 2'b01;                    // contended high byte (as io_c)
+reg  [7:0]  fb_h1, fb_hrd;                                      // fb_hrd: hpos when the port is read (> 227: past the line, FF)
+always @(posedge clk) begin
+    fb_h1  <= fb_hic ? fb_c(hpos, fb_scrl) + 8'd1 : hpos + 8'd2;
+    fb_hrd <= fb_hic ? fb_c(fb_c(fb_h1, fb_scrl) + 8'd1, fb_scrl) : fb_h1;
+end
+wire [7:0]  fb_x    = fb_hrd - 8'd1;                            // x = T-state - 14362 - 228 * row (hpos 0 = 14361)
 wire [7:0]  fb_row  = vline[7:0] - 8'd63;
-wire        fb_scr  = hpos >= 8'd3 && hpos < 8'd131 && vline >= 9'd63 && vline < 9'd255 &&
-                      fb_tl[2:0] >= 3'd2 && fb_tl[2:0] <= 3'd5;
-wire        fb_attr = fb_tl[0];                                 // 3, 5: attribute; 2, 4: bitmap
-wire [4:0]  fb_col  = {fb_tl[6:3], fb_tl[2]};                   // 2 * (tl / 8) (+1 for 4, 5)
+wire        fb_scr  = fb_scrl && fb_hrd >= 8'd1 && fb_hrd < 8'd129 && fb_x[2:0] >= 3'd2 && fb_x[2:0] <= 3'd5;
+wire        fb_attr = fb_x[0];                                  // 3, 5: attribute; 2, 4: bitmap
+wire [4:0]  fb_col  = {fb_x[6:3], fb_x[2]};                     // 2 * (x / 8) (+1 for 4, 5)
 
 function [17:0] map_addr(input [15:0] a, input [7:0] pg, input diag);
     case (a[15:14])
@@ -378,11 +398,12 @@ always @(posedge clk or negedge cpu_rst_n)
             smp_iow <= cpu_write;
         end
 
-        // floating bus: at the 2nd T-state of an I/O read of an unanswered port, the ULA's byte
+        // floating bus: at the 2nd T-state of an I/O read of an unanswered port, fetch the byte
+        // the ULA has at the read point (fb_hrd, see the header)
         if (mstart) begin
             fb_pend  <= 1'b0;
             fb_valid <= 1'b0;
-        end else if (chk[0] && io_k == 3'd1 && smp_io && !smp_iow && !inta && fb_on && fb_port) begin
+        end else if (chk[1] && io_k == 3'd1 && smp_io && !smp_iow && !inta && fb_on && fb_port) begin
             fb_pend <= fb_scr;
             fb_addr <= {1'b0, (p7ffd[3] ? 3'd7 : 3'd5),
                         fb_attr ? {4'b0110, fb_row[7:3], fb_col} : {1'b0, fb_row[7:6], fb_row[2:0], fb_row[5:3], fb_col}};
