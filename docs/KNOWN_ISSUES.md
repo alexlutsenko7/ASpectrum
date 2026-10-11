@@ -16,7 +16,8 @@ still worked, whether KEY0 or only a power cycle helped, and what the screen/LED
 
 - Memory contention is emulated at Level 1 (2026-10-09: memory and I/O cycles, 128K timing; F5 switches it off);
   not the internal contended T-states of some instructions (DJNZ, PUSH, INC rr, ...). Floating bus emulated
-  (2026-10-09, 128K timing, with contention; Sidewize, which syncs with it, works on the hardware). Not emulated: ULA snow (I register in 40-7F); DiagROM's snow test fails. The 50 Hz
+  (2026-10-09, 128K timing, with contention; read point corrected 2026-10-11 to Fuse 1.6's: start of the I/O
+  cycle's 4th T-state after its contention. Sidewize, Arkanoid and Cobra, which sync with it, work on the hardware). Not emulated: ULA snow (I register in 40-7F); DiagROM's snow test fails. The 50 Hz
   frame interrupt sits at VGA line 24, pixel 166, measured with Aquaplane's horizon stripe (calculated for a real
   128K: line 12.7; the ~11.5 lines between are most likely the missing Level-2 contention). Other border-effect
   games may need Page Up / Page Down (1/8 line steps, browser closed). In 60 Hz mode border effects cannot line up.
@@ -40,6 +41,20 @@ still worked, whether KEY0 or only a power cycle helped, and what the screen/LED
   at 28 MHz for a moment after loading). Possible fix: cut the final pause to 1 ms.
 - At power-up the CPU waits up to 1.5 s for the first keyboard packet (so F1 is seen); with no keyboard attached the
   machine always starts after 1.5 s.
+
+## Monitor compatibility (VGA output)
+
+| Display | 640x480@60 | 576p50 (F8) | Notes |
+|---|---|---|---|
+| User's LCD monitor | works | works, shown as "800x600@50" | 576p centred vertically, sharp (2026-10-06) |
+| User's home TV (CVT Electronics "LCD TV", 2010, 40") | works | **not possible** | EDID (2026-10-09): analog input, EDID 1.3, no extension blocks; range limits V **59-71 Hz**, H 30-80 kHz, max pixel clock 150 MHz. The TV refuses any 50 Hz input. |
+
+- 50 Hz needs a display whose VGA input accepts 50 Hz. Many TVs and PC monitors only take 60 Hz on VGA: their EDID lists
+  only PC modes, with no CEA block (576p50 = VIC 17/18 is usually only offered on HDMI inputs).
+- Hence the power-up default is 640x480@60 (since 2026-10-09). At 60 Hz the 50 Hz Spectrum frames are shown with every
+  5th output frame repeated (slight judder in smooth scrollers; border effects cannot line up).
+- Our 640x480 uses a 25.000 MHz pixel clock (59.52 Hz), not 25.175 MHz (59.94 Hz): this is just inside the TV's 59 Hz
+  minimum. Do not lower the 60 Hz mode's frame rate any further.
 
 ## Resolved
 

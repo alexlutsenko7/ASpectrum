@@ -223,3 +223,23 @@ Open (user's decision): how the adapter physically connects to the Cyclone IV bo
   Games/renamed_files.txt.
 - Game tools keep .z80 / .z80.zip (snapshots load from the browser) and honour Games/protected.txt (names never
   deleted, renamed or moved; first entries: the user's Sidewize.z80 / Sidewize[a].z80 in games/s2).
+
+### 2026-10-11
+- Lag seen on 9 October was the TV's (user tested other monitors and a PC).
+- Sidewize: the player flickered (~60/40, irregular) on all monitors in 50 Hz mode; clean in a 128K emulator. Not the
+  display: moving the INT (PgUp/PgDn, 0..50) changed nothing, F5 off freezes the game (it waits on the floating bus).
+  Cause: Sidewize polls port 40FF (IN A,(C) ; CP E ; JP NZ, 35 T) for attribute 40h (row 16) / 03h. Fuse 1.6
+  (peripherals/ula.c, periph.c) reads the port after all I/O contention, at the start of the 4th T-state; a
+  contended poll then sees only an attribute or FF. zx_bus sampled at T2 (after the T1 contention only): half of the
+  polls saw bitmap bytes, a pixel byte 40h/03h ended the wait early. Fix in zx_bus: read point predicted at T2 from
+  hpos + the remaining contention (2 pipeline stages, sample at chk[1]; a one-clock version failed timing by 2.5 ns),
+  phase origin 14362 as Fuse. tb_float model changed to Fuse's rule (passes). New sim/tb_floatgame.sv +
+  run_floatgame_sim.sh + mk_z80img.py: a .z80 game on zx_bus + T80, every floating-bus read vs Fuse (~1 min/frame).
+  Build 9,338 LEs, +0.57 ns. Confirmed on hardware (user): Sidewize no flicker, Arkanoid and Cobra work.
+- Not changed: Fuse also contends ports C000-FFFF while an odd RAM page is paged in; io_c only contends 40-7F.
+- Game collection re-sorted (tools/resort_games.py, moves only): files grouped by first character (a-z, else 123),
+  browser order, ceil(n/300) folders per letter, evenly filled; 5,922 of 15,965 files moved, 32 renamed " (n)" for
+  same-name clashes in one group, 8 empty folders removed; log Games/resort_moves.log (undo possible).
+- Question answered: Bluetooth audio out = original ESP32 (WROOM-32 DevKit, Classic BT; S2/S3/C3 cannot) as A2DP
+  source, I2S from the FPGA (ESP32 as I2S master), UART to the PicoRV32 for pairing/PIN in the OSD; KCX_BT_EMITTER
+  rejected (no PIN devices). User found a 30-pin WROOM-32 CP2102 Type-C board; not built yet. Latency ~150-250 ms (SBC).

@@ -144,8 +144,9 @@ bus), so the Spectrum continues as if nothing happened (the T-state count is unc
 | MIC output (port FE bit 3), CPU hold input | `rtl/zx_bus.v` | |
 | Firmware: browser, SD driver (read + write), FAT16/32 (read + create/delete files), TAP/TZX, recording, speed switch | `fw/*.c` | 12.9 KB code (RV32IMC), ~16.7 KB data |
 
-Whole ASpectrum (2026-10-09, with snapshots): 9,020 LEs (59 %), 55 / 56 M9K, 2 PLLs; worst setup slack +0.51 ns
-(112 MHz), worst hold +0.14 ns, no unconstrained paths. (8 October, before snapshots: 8,379 LEs, +0.47 ns.) The ROM-loader -> SDRAM owner switch (`rom_loader.done`) has a justified 2-clock multicycle in the SDC
+Whole ASpectrum (2026-10-11, with snapshots, contention and the corrected floating bus): 9,338 LEs (61 %), 55 / 56 M9K,
+2 PLLs; worst setup slack +0.57 ns (112 MHz), worst hold +0.13 ns, no unconstrained paths. (9 October: 9,020 LEs,
++0.51 ns; 8 October, before snapshots: 8,379 LEs, +0.47 ns.) The ROM-loader -> SDRAM owner switch (`rom_loader.done`) has a justified 2-clock multicycle in the SDC
 (it once failed by 0.05 ns after an unrelated change).
 
 ### Loader CPU memory map (`fw/hw.h`)

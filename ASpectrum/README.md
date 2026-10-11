@@ -62,6 +62,7 @@ At power-up the CPU waits for the first keyboard packet (at most 1.5 s) so a hel
 | `rtl/jt49/` | JT49 AY core (Jose Tejada, GPL-3), as used in the reference |
 | `sim/run_sim.sh [defines]` | whole-machine Questa simulation (flash model -> loader -> SDRAM model -> T80 boot); writes `screen.png` |
 | `sim/run_loader_sim.sh` | tape loader alone with an SD card model (read/write): boot, browser, play a TZX T-state exact vs the reference, Stop, recording a ROM-style save, F6 |
+| `sim/run_float_sim.sh`, `sim/run_floatgame_sim.sh [game.z80]` | floating bus: IN A,(FF) against Fuse's 128K rule; a real game (default Sidewize) with every floating-bus read and sync-loop exit compared with Fuse |
 | `sim/run_tapeload_sim.sh` | whole machine: 128K "Tape Loader", F12, Enter: the ROM loads a BASIC program from the card image (~40 min) |
 | `releases/v1_2026-10-06/` | the first hardware-proven .sof/.jic (before the tape loader) |
 
@@ -77,10 +78,12 @@ Program `output_files/ASpectrum.jic` once (Programmer, JTAG, Program/Configure, 
 ROMs into the flash. After that, `.sof` loads over JTAG are enough during development (ROMs stay in flash).
 If the LED blinks fast after loading a .sof, the flash has no ROM image: program the .jic.
 
-## Known limitations (first version)
+## Known limitations
 
-- Floating bus not emulated (unused ports read FF); no memory contention; border/multicolour effects are not
-  T-state exact (VGA is not locked to the Spectrum frame). Same as the DE10-Lite reference.
+- Memory contention at Level 1 only (memory and I/O cycles, not the internal contended T-states of some
+  instructions); the floating bus follows Fuse 1.6 (byte at the start of the I/O cycle's 4th T-state, after its
+  contention; fixed 2026-10-11, Sidewize / Arkanoid / Cobra work). No ULA snow. Border effects line up only in
+  the 50 Hz mode (PgUp/PgDn move the interrupt). Current list: `../docs/KNOWN_ISSUES.md`.
 - Keyboard module UART direction not confirmed: both lines are inputs with pull-ups, RX = KBD_A AND KBD_B
   (works whichever line carries the data). Nothing is sent to the module.
 - Joystick and AY/beeper audio need the J1 -> U7 wiring. The adapter's 50/60 switch S1 is not used (D2 unassigned).

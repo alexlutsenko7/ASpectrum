@@ -101,7 +101,8 @@ bash ASpectrum/sim/run_tapeload_sim.sh           # RTL: the 128K ROM loads a pro
 bash ASpectrum/sim/run_snap_sim.sh               # RTL: snapshot freeze / restore with the real T80
 bash ASpectrum/sim/run_snapsys_sim.sh            # RTL: whole machine + firmware: F2 save, F12 load back
 bash ASpectrum/sim/run_cont_sim.sh               # RTL: memory contention (NOPs per line in contended RAM: 57 / 41)
-bash ASpectrum/sim/run_float_sim.sh              # RTL: floating bus (IN A,(FF) against a 128K reference)
+bash ASpectrum/sim/run_float_sim.sh              # RTL: floating bus (IN A,(FF) against Fuse's 128K rule)
+bash ASpectrum/sim/run_floatgame_sim.sh          # RTL: a .z80 game's floating-bus sync vs Fuse (default Sidewize)
 ```
 
 The PC tests need a Windows gcc (w64devkit); the simulations need Questa (Intel FPGA Starter Edition).
