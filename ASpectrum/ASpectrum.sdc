@@ -67,14 +67,12 @@ set_multicycle_path -from [get_registers {*u_loader|done}] -to [get_registers {*
 #------------------------------------------------------------------------------
 # Board I/O: asynchronous or not timing-critical
 #------------------------------------------------------------------------------
-set_false_path -from [get_ports {RESET_N TAPE_IN TURBO_N KBD_A KBD_B GND_TIE[*] JOY_*}]
+set_false_path -from [get_ports {RESET_N KBD_A KBD_B GND_TIE[*] JOY_* BT_BCLK BT_LRCK BT_RX}]
 
-# SD card SPI (tape_loader): SCK <= 14 MHz = 4 x 56 MHz clocks per period; MOSI changes
-# half a period before the rising edge, MISO is taken a whole period after the card
-# changed it, by design
-set_false_path -to   [get_ports {SD_CS_N SD_SCK SD_MOSI}]
-set_false_path -from [get_ports {SD_MISO}]
-set_false_path -to   [get_ports {VGA_R VGA_R_LOW VGA_G VGA_G_LOW VGA_B VGA_B_LOW VGA_HSYNC VGA_VSYNC AUDIO_AY AUDIO_BEEPER LEDR}]
+# SPI link from the ESP32: synchronised in esp_link (SCK oversampled); IRQ is a level
+set_false_path -from [get_ports {ESP_SCK ESP_MOSI ESP_CS_N}]
+set_false_path -to   [get_ports {ESP_MISO ESP_IRQ}]
+set_false_path -to   [get_ports {VGA_R VGA_R_LOW VGA_G VGA_G_LOW VGA_B VGA_B_LOW VGA_HSYNC VGA_VSYNC AUDIO_AY AUDIO_BEEPER BT_DATA BT_TX LEDR}]
 
 # Configuration flash (ASMI block pins): SPI at clk / 8 = 14 MHz, MOSI changes in the low
 # phase and MISO is sampled at the end of the high phase (4 clocks each), by design

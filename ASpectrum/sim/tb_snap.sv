@@ -9,7 +9,7 @@
 //          (compared with the SDRAM model) and writes screen bytes the program
 //          never touches (checked against the video shadow at the end)
 //   run 2  as run 1, and every freeze also restores everything it read: register
-//          words -> DIR (PC - 1 in HALT, as fw/snap.c) -> LOAD (the T80 is reset),
+//          words -> DIR (PC - 1 in HALT, as esp32/src/snap.cpp) -> LOAD (the T80 is reset),
 //          7FFD/border/MIC/beeper, AY registers and select
 // Runs 1 and 0 must end identical (RAM incl. R stored by the program, registers,
 // AY). Run 2 must too, except what depends on the exact interrupt timing (each
@@ -115,7 +115,7 @@ wire [2:0]  border;
 
 zx_bus #(.FRAME_T(1500)) u_bus (
     .clk(clk), .rst_n(rst_n), .run(run), .turbo(1'b`TURBO), .diag_key(1'b0), .vid50(1'b0), .vsync_n(1'b1),
-    .kb_rows({40{1'b1}}), .joy(5'd0), .tape_in(1'b1), .ltape_on(1'b0), .ltape_lvl(1'b0),
+    .kb_rows({40{1'b1}}), .joy(5'd0), .ltape_on(1'b0), .ltape_lvl(1'b0),
     .cen_tgl(cen_tgl), .hold(1'b0), .mic(mic),
     .sd_req(bus_req), .sd_we(bus_we), .sd_addr(bus_addr), .sd_din(bus_din), .sd_dout(ram_dout), .sd_ack(ram_ack),
     .sh_we(sh_we), .sh_page7(sh_page7), .sh_addr(sh_addr), .sh_data(sh_data),

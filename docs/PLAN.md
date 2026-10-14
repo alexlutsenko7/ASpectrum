@@ -75,6 +75,74 @@ At 100 MHz (CEN avg every 3.57 clocks) the budget is ~7 clocks: est. 24-27 MHz e
 5. Port Spectrum peripherals into single clock domain; video with screen shadows; INT.
 6. Pinout for add-on hardware on QMTECH headers; bring-up.
 
+## Next stage: ESP32 as system controller (agreed 2026-10-13)
+
+**Goal:** free block RAM. The FPGA stays the EP4CE15 (an EP4CE6 does not fit, see the session log). PicoRV32 and its
+35 KB RAM leave the FPGA; the ESP32 (already there for Bluetooth) runs all loader firmware and drives the existing
+loader hardware through an SPI link. Gain: **~38 M9K** (35 RAM + 2 CPU registers + 1 UART FIFO) of 56, ~2,600 LEs.
+The same ESP32 + link is meant to serve later cores (C64) unchanged: machine-agnostic system controller.
+
+### Split
+| ESP32 (Arduino sketch, grows from `AAudio/`) | FPGA (`tape_loader` without the CPU) |
+|---|---|
+| SD card (own SPI host, FATFS, long names), directory listing + sort | pulse player + 512-entry command FIFO (T-state exact) |
+| browser, save dialog, F-key handling, OSD drawing | MIC recorder with `hold` (no edge lost however slow the link is) |
+| TAP/TZX parsing -> FIFO commands, MIC events -> TAP file | snapshot freeze + command port (MRD/MWR/REG/DIR/LOAD/AY/PORT/STATE) |
+| .z80 load/save (`fw/snap.c`), BT menu (local calls, no UART) | OSD text RAM + font, INTPOS, contention switch, keys/KEYRAW |
+| A2DP Bluetooth (core 0), loader (core 1) | **SPI-slave bridge** onto the register map + IRQ |
+
+`fw/*.c` is ported, not rewritten: `hw.h` register access becomes link calls, `sd.c`/`fat.c` are replaced by the
+ESP-IDF/Arduino FS, the browser keeps its list on the ESP32 (no 320-entry limit). The ESP32 becomes required for
+loading/saving (the machine still boots and runs without it).
+
+### Link (draft; finalise when building)
+- SPI mode 0, ESP32 = master, FPGA = slave oversampling SCK in the 56 MHz loader domain: SCK <= 10 MHz (~1 MB/s;
+  a 128 KB snapshot ~0.15 s). CS_N frames one command. MSB first.
+- Frame = command byte + arguments; reads have one dummy byte before the data:
+  | Cmd | Arguments | Purpose |
+  |---|---|---|
+  | `WR` | reg, data32 | write a loader register (same offsets as `fw/hw.h`) |
+  | `RD` | reg, dummy -> data32 | read a loader register |
+  | `FIFO` | n x data32 | push pulse-player commands (burst) |
+  | `OSD` | addr16, n bytes | OSD text, auto-increment |
+  | `MWR` / `MRD` | addr24, n bytes | Spectrum memory through the snapshot port, auto-increment (burst) |
+  | `STAT` | dummy -> data32 | IRQ causes + FIFO free + core ID (reading acknowledges) |
+- `ESP_IRQ` (FPGA -> ESP32, level, active high): FIFO below threshold, key report changed, recorder event, command done.
+- Core ID register (e.g. "ZX", version) so the ESP32 firmware picks the machine's file handlers (C64 later).
+
+### Test wiring (prototype, 2026-10-14)
+SD card (Adafruit BFF, today on U8.7-13) moves to the ESP32; the link uses the free U7.7-11 next to the BT wires.
+The current bitstream's F12 loader cannot reach the card any more after this; BT audio keeps working.
+
+| Signal | ESP32 (DOIT 30-pin) | FPGA | U7 pin | Notes |
+|---|---|---|---|---|
+| SD SCK | GPIO18 (VSPI) | — | — | BFF JP3.2 |
+| SD MISO | GPIO19 (VSPI) | — | — | BFF JP3.3; 10k pull-up to 3V3 if the BFF has none |
+| SD MOSI | GPIO23 (VSPI) | — | — | BFF JP3.4 |
+| SD CS | GPIO5 | — | — | BFF JP1.7 (TX); strapping pin, high at boot = default, OK |
+| SD 3V3 / GND | 3V3 / GND | — | — | 10 uF + 100 nF stay at the BFF |
+| ESP_SCK | GPIO14 | P1 | 9 | ESP32 -> FPGA |
+| ESP_MOSI | GPIO13 | P2 | 10 | ESP32 -> FPGA |
+| ESP_CS_N | GPIO33 | N1 | 11 | ESP32 -> FPGA; FPGA weak pull-up (deselected while the ESP32 boots) |
+| ESP_MISO | GPIO35 (input only) | R1 | 7 | FPGA -> ESP32 |
+| ESP_IRQ | GPIO34 (input only) | R2 | 8 | FPGA -> ESP32 |
+| GND | GND | — | 1/2 | one more GND wire in the bundle |
+
+Unchanged: I2S GPIO26/25/22 = U7.17-19; UART GPIO16/17 = U7.20/21 (kept until the BT menu runs on the ESP32).
+Pins avoided on purpose: GPIO12 (strapping: high at boot selects 1.8 V flash; the FPGA's weak pull-ups would do
+that), GPIO2/15 (strapping), GPIO6-11 (flash). SDMMC 1-bit/4-bit would need GPIO2/12/15, hence SD in SPI mode
+(20-40 MHz, far more than tapes need). FPGA side: plain I/O in bank 2; Quartus confirms at the first build.
+
+### Steps
+1. First hardware test: ESP32 sketch mounts the SD card and lists a folder; FPGA build with the bridge
+   (`ESP_LINK`, PicoRV32 removed) — ESP32 reads the core ID/TIMER, draws the listing on the OSD, reads keys,
+   MWR/MRD burst round trip into a frozen machine. Sim first: bridge testbench with an ESP32 SPI-master model.
+2. Port tape playback (`tape.c`: TAP/TZX -> FIFO, IRQ-driven refill) incl. turbo; compare with `run_loader_sim` data.
+3. Port saving (`save.c`, recorder events), snapshots (`snap.c`), browser/save dialog, BT menu (drop the UART).
+4. Remove PicoRV32, firmware RAM, UART and SD SPI master from the RTL; update docs (SD_TAPE_LOADER, Architecture,
+   Connection, Keys) and `Extended/` (microSD to the ESP32, link pins on J1).
+5. Later: second core (C64) reusing the ESP32 firmware's common part (SD, browser, OSD, BT, link).
+
 ## Session log
 ### 2026-10-05 (end of day)
 Done: steps 1, 2, 3a (SDRAM controller 112 MHz, 256 KB window, passes sim + hardware); SDRAM chip confirmed plain -6;
@@ -243,3 +311,98 @@ Open (user's decision): how the adapter physically connects to the Cyclone IV bo
 - Question answered: Bluetooth audio out = original ESP32 (WROOM-32 DevKit, Classic BT; S2/S3/C3 cannot) as A2DP
   source, I2S from the FPGA (ESP32 as I2S master), UART to the PicoRV32 for pairing/PIN in the OSD; KCX_BT_EMITTER
   rejected (no PIN devices). User found a 30-pin WROOM-32 CP2102 Type-C board; not built yet. Latency ~150-250 ms (SBC).
+
+### 2026-10-13
+- Bluetooth audio built. ESP32 sketch `AAudio/AAudio.ino` (Arduino core esp32 3.3.2, ESP32-A2DP v1.8.11 from GitHub):
+  A2DP source, audio from I2S (ESP32 = master: BCLK GPIO26, WS GPIO25, DIN GPIO22) or a test tone; text commands
+  on USB and UART2 (GPIO16/17, for the PicoRV32 later), CRLF output, settings in NVS. PIN devices: legacy PIN
+  requests answered with 0000/1234/8888/1111 in turn or a fixed `pin`; BT 2.0 devices (no EIR) listed by name request
+  or MAC (library filter overridden); discovery stopped while connected; 16-digit PIN overflow in the library avoided.
+- FPGA: `rtl/bt_i2s.v` in zx_system (AY + beeper, two one-pole low-passes at the AY rate, DC blocker per sample,
+  Philips I2S slave, synchronised BCLK/LRCK); pins U7.17 H1 BT_BCLK, U7.18 H2 BT_LRCK, U7.19 F1 BT_DATA; U7.20 F2 /
+  U7.21 E1 reserved for the ESP32 UART. sim/run_bt_i2s_sim.sh passes (16/32-bit slots). Build 9,498 LEs, 74 pins,
+  +0.43 ns. Not yet tried on hardware.
+- Bose headphones crashed the ESP32 in 38/40 connects: IntegerDivideByZero in SBC_Encoder_Init (ESP-IDF 5.5). When the
+  sink opens/configures the stream itself with the standard SBC config, Bluedroid never fetches its capabilities,
+  bta_av_co_audio_set_codec fails and the encoder stays zero. A first fix (calling btc_a2dp_source_setup_codec at
+  "connected") asserted (link not yet open). Final fix: -Wl,--wrap=bta_av_co_audio_set_codec (library
+  AAudio/libraries/AAudioLinkFix: Arduino passes ldflags only for a precompiled library with a stub archive), the
+  wrapper reports success while connected. Confirmed by the user: connects, test tone plays.
+- User: the Bluetooth device must be chosen from ASpectrum, USB only for debugging. Added: F3 = Bluetooth menu
+  (fw/bt.c: scan, connect, disconnect, forget, PIN, volume, Spectrum sound / test tone; tape keeps playing), UART in
+  tape_loader (reg 0x3C, 115200, 512-byte RX FIFO in an M9K; BT_TX F2 = U7.20, BT_RX E1 = U7.21), loader key bit 16
+  (F3). ESP32 sketch: `info` one-line state, `scan` drops the link first.
+- Firmware no longer fitted 32 KB (19.4 KB code). User pointed out unused block RAM: the screen shadows took 8 M9K
+  each (8K x 1 slices) and JT49's 128 x 8 table a whole M9K. A 36 KB lane RAM (9 M9K per lane) made synthesis leave
+  the PicoRV32 register file in logic (~1,800 LEs, +0.13 ns): its M9K estimate (shadows at 8) said "full". Final:
+  shadows and a 3 KB RAM extension (768 x 32, byte enables, maximum_depth 256 = 3 M9K) as explicit altsyncrams
+  (`ifdef ALTERA_RESERVED_QIS`, arrays in simulation), JT49 table in logic (QSF AUTO_ROM_RECOGNITION OFF),
+  browser 350 -> 320 entries. 56/56 M9K, 9,829 LEs, +0.71 ns, hold +0.15 ns.
+- UART bugs found in simulation (tb_tape_loader + ESP32 model): the stop bit lasted 1-2 clocks between bytes
+  (busy ended at its start); OSD redraws (~1.6 ms) overran a 16-byte RX FIFO (now 512); menu redraws on ESP32
+  lines and PIN typing. SystemVerilog has no "\r" escape (use "\x0d").
+- Full run_loader_sim.sh (19 min) with the final firmware: tape signal 168 segments / 0 mismatches, stop, recording
+  (file checked on the card image), speed, and the Bluetooth menu all pass (the menu-closed check had to look at
+  osd_full: the "Speed: turbo" row from the step before stays on the bottom line). +define+BT_ONLY run: PASS.
+- New document docs/ASpectrum_Connection.docx (all wiring); Architecture and Keys documents updated.
+- User: TAPE_IN and TURBO_N (the adapter's tape header, for the old external tape simulator) are not used any more:
+  removed from the design (ports, zx_bus EAR hold logic: EAR = loader while it plays, else the beeper; turbo = loader
+  only; zx_system FORCE_TURBO parameter for the whole-machine testbench), QSF/SDC and all documents
+  (QM_ATRIX_ADAPTER.md keeps the hardware description, marked "not used by ASpectrum"). zx_system: cont_on is now
+  declared before its first use (Questa vlog-2388); run_sim.sh compiles bt_i2s.v.
+- That build failed timing by 0.16 ns (SDRAM request path, placement only; same logic was +0.71 ns before): QSF
+  OPTIMIZATION_MODE "HIGH PERFORMANCE EFFORT" -> 9,753 LEs, 74 pins, 56/56 M9K, +0.60 ns, hold +0.16 ns.
+
+
+### 2026-10-13 (later): Extended I/O board (KiCad, `Extended/`)
+
+- Discussed other machines on this FPGA (C64 without the 1541 likely fits; the 2-bit VGA DAC cannot show the C64
+  palette -> 4-bit DAC; second joystick port). User asked for a new I/O board in `Extended/` (QM_Atrix_adapter/ untouched).
+- User decisions: separate board wired to the FPGA board (no plug-in headers), 4-bit DAC (523/1.05k/2.1k/4.22k,
+  0.7 V full scale), two standard right-angle DB9 male (pin 7 open), microSD socket on the board, 7803 switching module
+  (5 V in), no 50/60 switch, no tape header, no audio amplifier (two volume pots -> 3-pin audio-out header), keyboard
+  module with its USB end past the board edge, ESP32 30-pin dev board (DOIT pinout, CP2102 USB-C) on 2x 1x15 sockets,
+  host header J1 = 2x32 (same size as U7/U8): pins 1-40 as before + 41-45 BT_BCLK/LRCK/DATA/TX/RX, 46/63/64 GND.
+- Footprints checked against JLCPCB/LCSC stock: VGA = CONNFLY DS1038-15F (C75754; 2.29x2.54 rows -> new local
+  footprint, flange flush with the edge, pin rows 8.63/11.17/13.71 mm); DB9 = CONNFLY DS1037-09M (C75750; fits the
+  KiCad 7.70 footprint, flange 0.4 mm past the edge); microSD = Molex 104031-0811 (C585350). All "Extended" at JLCPCB.
+  ESP32 and keyboard modules are bought separately (not JLCPCB parts).
+- Layout iterated with the user (the user moved parts; I adjusted the outline, labels, nets). Final 84.1 x 83.43 mm,
+  routed on 2 layers with FreeRouting 2.5.0 (no neckdown; +5V 0.4 mm, GND/+3V3 0.3 mm, signals 0.25 mm), GND pours on
+  both layers, user's stitching vias. DRC: 0 unconnected, 0 clearance, 0 schematic-parity; left: DB9 outlines at the
+  edge, 5 single-spoke thermals (J1.3/20/40/46, RV2.3) that also have GND tracks.
+- Open: user review of the routed board; optionally pick a JLCPCB 1x15 female header for the ESP32 sockets; FPGA pin
+  assignment for the 2x32 J1 wires (docs/BOARD_PINOUT.md) and the 4-bit VGA in ASpectrum when the board is built.
+
+### 2026-10-13 (evening): cheaper FPGA? -> ESP32 system controller
+- Question: move SD/loader work to the ESP32 and use a cheaper FPGA. Current loader: tape_loader 3,953 LEs / 40 M9K,
+  of which PicoRV32 2,594 LEs, firmware RAM 35 M9K.
+- Trial build (throwaway copy, deleted): EP4CE6F17C8 (6,272 LEs, 30 M9K, 2 PLLs), PicoRV32 + RAM replaced by an
+  SPI-slave bus master, everything else unchanged (JT49, keyboard, SD SPI, BT UART): **6,311 combinational cells
+  -> does not fit** (39 over); speed / balanced / aggressive-area synthesis all gave 6,311. Memory 145,920 bits,
+  2/2 PLLs, 78 pins would have fit. Big users: T80 2,585, zx_bus 710, tape_loader rest 903, keyboard 499,
+  JT49 450, sdram_ram 405, video 316. EP4CE10 would fit; DDR boards were considered and rejected.
+- User: stay on the EP4CE15; block RAM matters, not LEs; future C64 core. Firmware RAM today: 19.4 KB code,
+  11.5 KB browser list (320 x 36 B), ~2.1 KB SD/FAT buffers, stack 1.25 KB. Keeping PicoRV32 with SD/FAT on the
+  ESP32 would save only 11-15 M9K; removing PicoRV32 saves ~38. Decision: the latter (section "Next stage" above).
+- Next session: user wires the SD card to the ESP32 and the SPI link to U7.7-11 (table above); then step 1.
+- Step 1 built the same evening (user: build now, any ESP32 pins): `rtl/esp_link.v` (SPI slave, mode 0, SCK <= 8 MHz
+  oversampled at 56 MHz; WR/RD/OSD/FIFO/MWR/MRD/STAT; MWR/MRD bursts = one snapshot command per byte, MRD
+  prefetched; sticky error flag), in `tape_loader` under `ESP_LINK` (PicoRV32 + RAM out, SD SPI writes off,
+  reg 0x00 = core ID 5A580001, reg 0x04 = IRQ causes/mask; esp_irq pin). Quartus revision **ASpectrum_ESP**
+  (`ASpectrum_ESP.qsf`, VERILOG_MACRO ESP_LINK; pins ESP_MISO R1, ESP_IRQ R2, ESP_SCK P1, ESP_MOSI P2, ESP_CS_N N1;
+  SD pins dropped; `ASpectrum.sdc` picks the ESP or SD false paths by port existence; `ASpectrum_ESP.cof` -> .jic).
+  Build: 7,520 LEs, **19/56 M9K**, 75 pins, +0.39 ns / hold +0.16 ns, fully constrained.
+  sim/run_esp_link_sim.sh (tb_esp_link: ID, register R/W, OSD, FIFO, 256-byte MWR/MRD across a page, error flag
+  with slow commands, IRQ on key change): PASS. The sim found an MRD bug (saturating byte counter + 1 wrapped:
+  bursts stopped after 11 bytes), fixed. ESP32 test sketch `ESPLinkTest/` (id, rd/wr, stat, ls -> OSD, keys via
+  IRQ, memtest over the frozen screen, speed); compiles (343 KB). Not yet on hardware.
+- 2026-10-14: user wired the ESP32 (link U7.7-11, SD moved to the ESP32). Test_wires/ (FPGA .sof + ESP32 sketch,
+  report on USB) found the SD SCK joint bad; after re-soldering ALL WIRES OK (10 link/BT wires: levels, 2 MHz pulses,
+  8 MHz SPI, no crosstalk; SD at 20 MHz). Then ASpectrum_ESP.sof + ESPLinkTest on hardware: core ID 5a580001, timer,
+  SD ls + OSD, memtest 5 rounds 0 errors, MRD 914 KB/s, link stat 0. Step 1 works; `keys` F1-F12 OK (HID 3A-45, KEYS bits as fw/hw.h).
+- 2026-10-14 (later): step 2 by porting, not rewriting: AAudio runs the loader firmware (ASpectrum/fw, compiled as
+  C++, register proxies over the link) next to Bluetooth; one ESP32 firmware for both FPGA builds (loader only when
+  the link answers 5A580001). Casts added in fat.c/util.c for C++ (PicoRV32 fw.bin byte-identical). Flash now holds
+  ASpectrum_ESP.jic. On hardware: loader starts, SD mounts at 20 MHz, BT stays responsive; user confirmed
+  the same day that everything works (F12, tapes, .z80, F2, F3).

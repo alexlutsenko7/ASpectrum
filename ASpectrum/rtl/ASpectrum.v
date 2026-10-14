@@ -4,22 +4,25 @@
 //              plugged into U8, J1 wired to U7; see docs/BOARD_PINOUT.md)
 //
 // Clocks: sys_pll  c0 = 112 MHz system clock, c1 = 112 MHz delayed (SDRAM clock),
-//                  c2 = 56 MHz (SD tape loader, aligned with c0)
+//                  c2 = 56 MHz (tape loader hardware + ESP32 link, aligned with c0)
 //         vga_pll  c0 = 25 MHz (640x480@60), c1 = 27 MHz (720x576@50), switched
 //                  by the global clock control block (sequenced as in VGA_TEST)
 //
-// Controls (USB keyboard keys: see zx_keyboard.v, docs/SD_TAPE_LOADER.md):
-//   KEY0 (W13)    reset (CPU, ports, ROM reload, tape loader)
+// Controls (USB keyboard keys: see zx_keyboard.v, docs/SD_TAPE_LOADER.md). The SD card,
+// browser and file handling are on the ESP32 (esp32/), which drives the loader hardware
+// over the SPI link (rtl/esp_link.v):
+//   KEY0 (W13)    reset (CPU, ports, ROM reload, tape loader; the ESP32 restarts)
 //   Ctrl+Alt+Del  reset of the machine only (the tape loader keeps running)
 //   F1            held while the CPU starts (power-up or after a reset): DiagROM
 //   F2            save a snapshot (.z80) to the SD card; the F12 browser loads them
 //   F8            swap 50/60 Hz video (power-up default: 640x480@60, which every
 //                 monitor accepts; 576p50 is not supported by all of them)
 //   F12 / numpad  SD card tape loader (browser on the OSD)
-//   TURBO_N       low = 28 MHz CPU (external tape simulator); the internal SD
-//                 loader switches turbo on by itself while it plays
+//   Turbo         the SD tape loader switches the CPU to 28 MHz while it plays or saves (F6: normal speed)
 //   LED           on = turbo; fast blink = no ROM image in flash (program the .jic)
 //   KEY1 (Y13)    not used
+//   F3            Bluetooth audio menu (scan, connect, PIN, volume)
+//   BT_*          machine sound as I2S to the ESP32 Bluetooth bridge, UART for its control
 //=============================================================================
 `default_nettype none
 
@@ -52,17 +55,16 @@ module ASpectrum #(
     output wire        VGA_B_LOW,
     output wire        VGA_HSYNC,
     output wire        VGA_VSYNC,
-    input  wire        TAPE_IN,
-    input  wire        TURBO_N,
     input  wire        KBD_A,           // keyboard module J5.2 / J5.3: which one is the module's TX is
     input  wire        KBD_B,           // not confirmed -> both inputs (pulled up), RX = KBD_A & KBD_B
     input  wire [1:0]  GND_TIE,         // grounded by the adapter: inputs only
 
-    // SD card (Adafruit MicroSD BFF on U8.7-13)
-    output wire        SD_CS_N,
-    output wire        SD_SCK,
-    output wire        SD_MOSI,
-    input  wire        SD_MISO,
+    // SPI link from the ESP32 system controller (U7.7-11); the SD card is on the ESP32
+    input  wire        ESP_SCK,
+    input  wire        ESP_MOSI,
+    input  wire        ESP_CS_N,
+    output wire        ESP_MISO,
+    output wire        ESP_IRQ,
 
     // adapter J1, wired to U7
     output wire        AUDIO_AY,
@@ -71,7 +73,14 @@ module ASpectrum #(
     input  wire        JOY_DOWN_N,
     input  wire        JOY_LEFT_N,
     input  wire        JOY_RIGHT_N,
-    input  wire        JOY_FIRE_N
+    input  wire        JOY_FIRE_N,
+
+    // ESP32 Bluetooth audio (esp32/), wired to U7.17-21
+    input  wire        BT_BCLK,         // I2S bit clock from the ESP32 (master)
+    input  wire        BT_LRCK,         // I2S word select from the ESP32
+    output wire        BT_DATA,         // I2S data to the ESP32
+    output wire        BT_TX,           // UART to the ESP32 (its RX2, GPIO16)
+    input  wire        BT_RX            // UART from the ESP32 (its TX2, GPIO17)
 );
 
 //-----------------------------------------------------------------------------
@@ -237,8 +246,6 @@ zx_system u_sys (
     .pclk         (pclk),
     .prst_n       (prst_n),
     .mode50       (sel),
-    .turbo_n      (TURBO_N),
-    .tape_in      (TAPE_IN),
     .kbd_rx       (KBD_A & KBD_B),
     .joy_n        ({JOY_FIRE_N, JOY_UP_N, JOY_DOWN_N, JOY_LEFT_N, JOY_RIGHT_N}),
     .sd_cke       (DRAM_CKE),
@@ -252,10 +259,11 @@ zx_system u_sys (
     .sd_dq_o      (dq_o),
     .sd_dq_oe     (dq_oe),
     .sd_dq_i      (DRAM_DQ),
-    .sdc_cs_n     (SD_CS_N),
-    .sdc_sck      (SD_SCK),
-    .sdc_mosi     (SD_MOSI),
-    .sdc_miso     (SD_MISO),
+    .esp_sck      (ESP_SCK),
+    .esp_mosi     (ESP_MOSI),
+    .esp_cs_n     (ESP_CS_N),
+    .esp_miso     (ESP_MISO),
+    .esp_irq      (ESP_IRQ),
     .kbd_f8_tgl   (kbd_f8_tgl),
     .kbd_cad      (kbd_cad),
     .f_dclk       (f_dclk),
@@ -272,6 +280,11 @@ zx_system u_sys (
     .vga_vs       (VGA_VSYNC),
     .audio_ay     (AUDIO_AY),
     .audio_beeper (AUDIO_BEEPER),
+    .bt_bclk      (BT_BCLK),
+    .bt_lrck      (BT_LRCK),
+    .bt_data      (BT_DATA),
+    .bt_tx        (BT_TX),
+    .bt_rx        (BT_RX),
     .led          (led)
 );
 

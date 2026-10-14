@@ -1,58 +1,45 @@
-# Internal SD tape loader (TAP/TZX) and snapshots (.z80)
+# SD tape loader (TAP/TZX) and snapshots (.z80)
 
-Status (2026-10-08, end of day): **loading, saving (recording mode), the 400-entry browser, Stop (F7) and the speed
-switch (F6) all work on hardware** (user). PC tests and RTL simulations pass; Quartus build timing clean.
+The loader plays **unmodified .tap and .tzx** files from an SD card, in turbo (28 MHz CPU = 8x) or at normal
+speed, T-state exact; it records everything the Spectrum saves into .tap files and saves / loads `.z80` snapshots.
+F3 opens the Bluetooth audio menu. Works on hardware (loading, saving, snapshots, Bluetooth menu).
 
-2026-10-09: **snapshots** added (F2 saves the whole machine as a `.z80`, the browser loads `.z80` files; see
-"Snapshots" below). The browser limit went from 400 to **350 entries** per folder to make room in the 32 KB loader
-RAM. PC tests and RTL simulations pass; works on hardware (user, 2026-10-09).
+It is split between the two chips:
 
-Replaces the user's external loader (small MCU + 2 buttons + LCD, PC-preprocessed TAP format, pulls TURBO_N low
-while playing at 8x). The loader lives inside the FPGA and plays **unmodified .tap and .tzx** files from an SD card,
-in turbo (28 MHz CPU = 8x), T-state exact.
+- **ESP32** (`ASpectrum/esp32/`, the system controller): the SD card, FAT16/32, the browser and all dialogs,
+  TAP/TZX parsing, the recording decoder, .z80 files, the Bluetooth menu. The firmware is portable C in
+  `esp32/src/` (tested on the PC too), running as a task next to the Bluetooth audio.
+- **FPGA** (`rtl/tape_loader.v` behind `rtl/esp_link.v`): the parts that need exact timing or direct access to the
+  machine: the pulse player (512-command FIFO, timed in CPU T-states), the MIC recorder that holds the Z80 while an
+  event is unread, the snapshot freeze and command port, the OSD, the loader keys, frame-interrupt position and
+  contention switch.
+- Between them an **SPI link** (ESP32 = master, mode 0, 8 MHz, U7.7-11): frames for register read/write, pulse
+  commands, OSD text and Spectrum memory bursts (~900 KB/s), plus an IRQ line.
 
-## Decisions (user, 2026-10-08)
+## Design rules
 
-- Embedded soft CPU, **not Nios** (no vendor lock-in for the loader subsystem) -> **PicoRV32** (ISC licence, single
-  Verilog file, unmodified in `ASpectrum/rtl/picorv32/`, pinned commit in SOURCE.md). Alternatives considered:
-  NEORV32 (heavier), SERV (tiny but ~30x slower), second T80 + SDCC, DivMMC/esxDOS (rejected: trap loading).
-- Clock: **56 MHz** (sys_pll c2, edges aligned with the 112 MHz system clock; user left 56 vs 112 to us). Code and
-  data in block RAM only. 56 MHz gives +4.9 ns slack; crossings to the 112 MHz domain are normal timed paths.
-- **No PC preprocessing**: the C firmware parses TAP/TZX directly from the card.
-- UI: **USB keyboard** (numpad, F-key fallback, arrows/Enter/Esc in the browser); the LCD is replaced by an **OSD**
-  (32 x 24 characters, Spectrum font, white on blue). No long/short-press dual use: one function per key.
-- Machine keys: DiagROM = F1 held at start, 50/60 = F8, Ctrl+Alt+Del = reset; **KEY1 no longer used**.
-- Toolchain (Windows, called from WSL): xPack `riscv-none-elf-gcc` 15.2 in `C:\Tools\xpack-riscv-none-elf-gcc`
-  (needs `GCC_EXEC_PREFIX`, see `fw/build.sh`), w64devkit gcc in `C:\Tools\w64devkit\w64devkit` for the PC tests.
+- **No PC preprocessing**: the firmware parses TAP/TZX directly from the card.
+- UI: **USB keyboard** (numpad, F-key fallback, arrows/Enter/Esc in the browser) and an **OSD** (32 x 24
+  characters, Spectrum font, white on blue). No long/short-press dual use: one function per key.
+- Machine keys: DiagROM = F1 held at start, 50/60 = F8, Ctrl+Alt+Del = reset; KEY1 not used.
+- The FPGA's loader hardware runs at **56 MHz** (sys_pll c2, edges aligned with the 112 MHz system clock), so the
+  crossings to the 112 MHz domain are normal timed paths.
 
 ## Hardware
 
-- microSD in SPI mode: CS, SCK, MOSI, MISO. 3.3 V direct. SCK 400 kHz for card init, then 14 MHz (56 / 4).
-- The external `TAPE_IN` / `TURBO_N` inputs keep working (old loader, real tape); turbo = TURBO_N low OR loader.
-
-### Prototype SD adapter: Adafruit 5683 "MicroSD Card BFF"
-
-Adafruit schematic (2023-01-31): bare microSD socket, no regulator, no level shifter, no decoupling caps, no
-pull-ups, no card detect, DAT1/DAT2 floating. CS = TX via solder jumper SJ2 (factory default, confirmed unmodified).
-RX, A0-A3, SDA, SCL are only QT Py pass-through header pins: unconnected. 5V pin: unconnected.
-
-**Wired (user, 2026-10-08)**, 5 mm pins, CS by a 25 mm wire, 10 uF + 100 nF fitted at the BFF:
-
-| BFF pin | Signal | FPGA pin | U8 pin | Notes |
-|---|---|---|---|---|
-| JP3.4 MOSI | SD_MOSI | AA13 | 7 | |
-| JP3.3 MISO | SD_MISO | AA14 | 9 | weak pull-up ON |
-| JP3.2 SCK | SD_SCK | AA15 | 11 | |
-| JP1.7 TX | SD_CS_N | AA16 | 13 | weak pull-up ON |
-| JP3.5 3.3V / JP3.6 GND | | | 3-4 / 1-2 | core board supply |
-
-For a final socket on the daughter card: 47 kOhm pull-ups on MISO, DAT1, DAT2; 10 uF + 100 nF.
+- microSD on the ESP32 in SPI mode (VSPI): SCK GPIO18, MISO GPIO19, MOSI GPIO23, CS GPIO5, 3.3 V. 20 MHz
+  (4 MHz if a card does not start at 20 MHz).
+- SD adapter: Adafruit 5683 "MicroSD Card BFF": bare microSD socket, no regulator, no level shifter, no pull-ups,
+  no card detect, DAT1/DAT2 floating; CS = TX via solder jumper SJ2 (factory default). 10 uF + 100 nF fitted at the
+  BFF. The ESP32 turns on its internal pull-up on MISO; a 10k-47k external pull-up is better.
+- Link and Bluetooth wiring (U7.7-11, U7.17-21, GND): `ASpectrum/esp32/README.md`, `docs/ASpectrum_Connection.docx`.
+- Turbo and EAR come from the loader.
 
 ## Using it
 
 Card: FAT32 or FAT16 (MBR-partitioned or not), 512-byte sectors. **Not exFAT** (most cards > 32 GB come exFAT:
 reformat as FAT32). Folders are supported; the browser shows folders and `.tap` / `.tzx` / `.z80` files, sorted,
-folders first, up to **350 entries per folder**; long names are shown (first 27 characters).
+folders first, up to **320 entries per folder**; long names are shown (first 27 characters).
 
 | Key | Browser closed | Browser open |
 |---|---|---|
@@ -76,11 +63,12 @@ shows "Tape stopped (5=go on)"; keypad 5 continues — multi-load games). Pause 
 | Machine key | Action |
 |---|---|
 | F2 | save a snapshot (.z80) |
+| **F3** | **Bluetooth audio menu**: scan, connect, PIN, volume, Spectrum sound / test tone; F3 or Esc closes it; a playing tape goes on |
 | F6 | tape speed for loading and saving: turbo (default) / normal (see above) |
 | F1 held while the CPU starts (power-up, KEY0, Ctrl+Alt+Del) | DiagROM instead of the 128K ROM |
 | F8 | swap 60/50 Hz video (power-up default 640x480@60) |
 | Ctrl+Alt+Del | reset the Spectrum (tape loader keeps running; ROMs reloaded) |
-| KEY0 (W13) | reset everything incl. the tape loader |
+| KEY0 (W13) | reset everything incl. the tape loader (the ESP32 restarts; Bluetooth reconnects after a few seconds) |
 
 At power-up the CPU waits for the first keyboard packet (at most 1.5 s), so F1 held during power-up is seen. If it
 is missed anyway, hold F1 and press Ctrl+Alt+Del.
@@ -127,7 +115,7 @@ not an interrupt acknowledge and does not follow a prefix (CB, ED, DD, FD; track
 the T80 has finished the previous instruction (its ALU result is written back at T1) and has not yet taken the
 opcode or incremented PC and R. The T80's own `REG` output (all registers) is read; for loading, the T80 alone is
 reset and all registers are loaded at once through its `DIRSet`/`DIR` port (the same port MiSTer uses). The loader
-CPU reaches RAM, AY and ports through a small command port in `zx_bus` (below); RAM writes also update the screen
+reaches RAM, AY and ports through a small command port in `zx_bus` (below); RAM writes also update the screen
 shadows. When the freeze ends, the opcode read of the stopped M1 is repeated (the loader's reads changed the data
 bus), so the Spectrum continues as if nothing happened (the T-state count is unchanged: tape timing too).
 
@@ -135,32 +123,33 @@ bus), so the Spectrum continues as if nothing happened (the T-state count is unc
 
 | Part | File | Size (Quartus, EP4CE15) |
 |---|---|---|
-| PicoRV32 RV32IMC (no IRQ/counters, register file in M9K) | `rtl/picorv32/picorv32.v` | 2,571 LEs (incl. multiplier/divider), 2 M9K |
-| Loader: RAM 32 KB (4 byte lanes, `$readmemh` of `fw/build/fw0..3.hex`), registers, SPI, FIFO 512 x 32, pulse player, recorder | `rtl/tape_loader.v` | 972 LEs, 34 M9K (32 RAM + 2 FIFO) |
-| Keyboard: loader keys (13, incl. F2/F6/F7), raw report for typing, F1, F8 toggle, Ctrl+Alt+Del, first-packet flag, ZX key blocking | `rtl/zx_keyboard.v` | 534 LEs |
+| SPI link: SPI slave (SCK oversampled at 56 MHz, <= 8 MHz), master of the loader register bus; frames WR / RD / OSD / FIFO / MWR / MRD / STAT; core ID, IRQ | `rtl/esp_link.v` | |
+| Loader hardware: registers, FIFO 512 x 32, pulse player, recorder, UART to the ESP32's Bluetooth part (512-byte receive FIFO) | `rtl/tape_loader.v` | 3 M9K (2 FIFO + 1 UART) |
+| Keyboard: loader keys (17, incl. F2/F3/F5/F6/F7), raw report for typing, F1, F8 toggle, Ctrl+Alt+Del, first-packet flag, ZX key blocking | `rtl/zx_keyboard.v` | 534 LEs |
 | Snapshots: instruction-boundary freeze, command port (RAM, registers, AY, ports), T80 REG / DIRSet | `rtl/zx_bus.v`, `rtl/cpu_t80.v` | |
 | OSD: text RAM (dual clock), font ROM (`rtl/osd_font.hex`, from the 48K ROM), overlay | `rtl/zx_video.v` | +25 LEs, 2 M9K |
 | EAR from the player, T-state toggle `cen_tgl` | `rtl/zx_bus.v` | |
 | MIC output (port FE bit 3), CPU hold input | `rtl/zx_bus.v` | |
-| Firmware: browser, SD driver (read + write), FAT16/32 (read + create/delete files), TAP/TZX, recording, speed switch | `fw/*.c` | 12.9 KB code (RV32IMC), ~16.7 KB data |
+| Firmware: browser, FAT16/32 (read + create/delete files), TAP/TZX, recording, speed switch, snapshots, Bluetooth menu | `esp32/src/*.cpp` | ESP32 sketch 1.16 MB (with Bluetooth) |
+| Platform: registers as link proxies, SD sectors, OSD shadow, FIFO / memory bursts, loader task | `esp32/src/hw.h`, `esp_hw.cpp` | |
 
-Whole ASpectrum (2026-10-11, with snapshots, contention and the corrected floating bus): 9,338 LEs (61 %), 55 / 56 M9K,
-2 PLLs; worst setup slack +0.57 ns (112 MHz), worst hold +0.13 ns, no unconstrained paths. (9 October: 9,020 LEs,
-+0.51 ns; 8 October, before snapshots: 8,379 LEs, +0.47 ns.) The ROM-loader -> SDRAM owner switch (`rom_loader.done`) has a justified 2-clock multicycle in the SDC
-(it once failed by 0.05 ns after an unrelated change).
+Whole ASpectrum (2026-10-14): 7,483 LEs (49 %), 19 / 56 M9K, 75 pins, 2 PLLs; worst setup slack +0.45 ns (112 MHz),
+worst hold +0.15 ns, no unconstrained paths (fitter at "HIGH PERFORMANCE EFFORT"). The screen shadows are explicit
+altsyncrams for Quartus (inferred, synthesis counted 8 M9K per shadow instead of 7). JT49's 128 x 8 volume table
+is in logic (QSF `AUTO_ROM_RECOGNITION OFF`). The ROM-loader -> SDRAM owner switch (`rom_loader.done`) has a
+justified 2-clock multicycle in the SDC.
 
-### Loader CPU memory map (`fw/hw.h`)
+### Loader registers (`rtl/tape_loader.v`, firmware names in `esp32/src/hw.h`)
 
 | Address | Register |
 |---|---|
-| 0x0000_0000 | RAM 32 KB: code, data, stack (all mutable data in .bss: a reset does not reload the RAM) |
-| 0x1000_0000 SPI_DATA | W: send byte, R: received byte |
-| 0x1000_0004 SPI_CTRL | [0] card select, [15:8] half SCK period - 1, R [31] busy |
+| 0x1000_0000 ID | core ID 5A58_0001 ("ZX", link version 1) |
+| 0x1000_0004 IRQ | R: [3:0] causes (FIFO at most half full, key change, recorder event, snapshot port idle), [11:8] mask; W: [11:8] mask |
 | 0x1000_0008 KEYS | loader keys (bits as `zx_keyboard` `lkeys`; bit 10 F7 / keypad *, bit 11 F6) |
 | 0x1000_000C FIFO | W: push command, R: [9:0] used, [16] player idle |
 | 0x1000_0010 TAPE | [0] EAR from player, [1] turbo, [2] flush |
 | 0x1000_0014 OSD | [0] on, [1] full screen (else bottom row only; full also blocks the ZX keyboard) |
-| 0x1000_0018 TIMER | 56 MHz counter |
+| 0x1000_0018 TIMER | 56 MHz counter (the ESP32 firmware uses its own clock) |
 | 0x1000_001C MARKER | block the player is in (last MARK executed) |
 | 0x1000_0020 REC | recorder event, read clears it: [31] pending, [30] gap (8000 T without an edge), [29] edges lost, [23:0] T-states since the previous MIC edge |
 | 0x1000_0024 RECCTL | W: [0] armed (hold the Spectrum while an event is unread), [1] hold; R: T-states since the last edge |
@@ -168,7 +157,14 @@ Whole ASpectrum (2026-10-11, with snapshots, contention and the corrected floati
 | 0x1000_002C SNAPCTL | W: [0] freeze the Spectrum CPU; R: [0] frozen (at an instruction boundary, bus idle), [1] command busy |
 | 0x1000_0030 SNAPCMD | W: start a command: [31:28] command, [17:0] address (list below) |
 | 0x1000_0034 SNAPDAT | W: data for the next command; R: result of the last one |
+| 0x1000_0038 INTPOS | 50 Hz frame interrupt position: [9:0] VGA line, [25:16] pixel; [31] memory contention off |
+| 0x1000_003C UART | to the ESP32's Bluetooth part, 115200 8N1. W: [8] send [7:0] (ignored while busy), [9] drop the oldest received byte, [10] clear overrun; R: [7:0] oldest received byte, [8] valid, [9] sending, [10] overrun (512-byte FIFO was full) |
 | 0x2000_0000 | OSD text, 32 x 24 bytes, bit 7 = inverse |
+
+Link frames (`rtl/esp_link.v`): `01 WR r d3..d0`, `02 RD r x -> d3..d0`, `03 OSD a1 a0 b...`, `04 FIFO (d3..d0)...`,
+`05 MWR a2 a1 a0 b...` and `06 MRD a2 a1 a0 x -> b...` (Spectrum memory through the snapshot port, while frozen),
+`07 STAT x -> {error, 0}`. The ESP32 collects pulse commands, OSD text and memory writes into one frame each and
+reads memory 256 bytes at a time; every other register access is one frame.
 
 Snapshot commands (`zx_bus`, while frozen): 1 MRD SDRAM byte, 2 MWR SDRAM byte (+ screen shadow), 3 REG register
 word 0-6, 4 DIR register word for LOAD, 5 LOAD (reset the T80, load all registers), 6 AYRD, 7 AYWR, 8 AYSEL (AY
@@ -179,7 +175,7 @@ acknowledge toggles back (56 MHz and 112 MHz come from one PLL, edges aligned).
 
 ### Pulse player
 
-Commands (32 bit, `fw/hal.h`); durations in T-states = CPU clock-enable ticks, so the same file is exact at 3.5 MHz
+Commands (32 bit, `esp32/src/hal.h`); durations in T-states = CPU clock-enable ticks, so the same file is exact at 3.5 MHz
 and in turbo, and SDRAM stalls stretch the tape with the CPU:
 
 | Command | Meaning |
@@ -197,7 +193,7 @@ fresh.
 
 ### Recorder (saving)
 
-MIC edges are timed in T-states like the player. While a save runs the recorder is **armed**: an event the CPU has
+MIC edges are timed in T-states like the player. While a save runs the recorder is **armed**: an event the ESP32 has
 not read yet **holds the Z80** (the CEN stops, as for an SDRAM wait), so no edge can be lost however long the
 firmware needs (SD writes, the dialog). Holding also stops the T-states, so the recorded timing is unchanged and the
 Spectrum never notices. The firmware decodes ROM-format blocks (pilot 2168, sync 667 + 735, bits 2 x 855 / 1710;
@@ -205,51 +201,52 @@ each bit is decided by its first pulse because the ROM does not always end a blo
 TAP lengths are written as 0 and patched when the block ends. New files get 8.3 names; the FAT is written to both
 copies, the FAT32 free count is set to "unknown". No real dates (no clock on the board).
 
-### Firmware (`fw/`)
+### Firmware (`ASpectrum/esp32/src/`)
 
-- `main.c`: browser (load, sort, page, [Save to this folder]), keys with auto-repeat, player control
+- `main.cpp`: browser (load, sort, page, [Save to this folder]), keys with auto-repeat, player control
   (pause/continue/back, stop/end), OSD, name entry from the raw keyboard report.
-- `save.c`: recording mode: recorder events -> ROM-format decoder -> blocks appended to one TAP file until F12.
-- `snap.c`: snapshots: freeze, state capture, .z80 version 3 writer (compression in two passes over each page:
+- `save.cpp`: recording mode: recorder events -> ROM-format decoder -> blocks appended to one TAP file until F12.
+- `snap.cpp`: snapshots: freeze, state capture, .z80 version 3 writer (compression in two passes over each page:
   length first, then the data), loader for versions 1-3 (checks the whole file before changing anything).
-  The file being written (`fw_file`, fat.c) is shared by recording and snapshots (never both at once).
-- Memory: code 15.7 KB (built with `-msave-restore`: shared prologue/epilogue code, -0.9 KB), data 15.3 KB, stack
-  >= 1.25 KB (deepest chain measured with `-fstack-usage`: ~0.75 KB). The 32 KB RAM cannot grow (55 / 56 M9K).
-- `sd.c`: SPI-mode init (CMD0, CMD8, ACMD41, CMD58, CMD16), CMD17 block reads, CMD24 block writes, SDSC/SDHC/SDXC.
-- `fat.c`: FAT16/FAT32, MBR or not, long names, cluster chains (fragmented files), seek; creating files (free
-  cluster search, write-back FAT cache to all copies, directory entry, growing a full folder).
-- `tape.c`: TAP and TZX -> commands. TZX blocks played: 10 11 12 13 14 15 20 2B, control 21 22 23 24 25 26 27;
+  The file being written (`fw_file`, fat.cpp) is shared by recording and snapshots (never both at once).
+- `bt.cpp`: Bluetooth menu (F3): text commands (`info`, `scan`, `connect n`, `disconnect`, `forget`, `pin`, `vol`,
+  `src`) through the FPGA's UART to the Bluetooth part of the sketch, its lines read on every main-loop pass
+  (OK info / ERR / EV events), info asked every second while the menu is open, PIN typed from the raw keyboard
+  report. Protocol: `ASpectrum/esp32/README.md`.
+- `fat.cpp`: FAT16/FAT32 on raw 512-byte sectors, MBR or not, long names, cluster chains (fragmented files), seek;
+  creating files (free cluster search, write-back FAT cache to all copies, directory entry, growing a full folder).
+- `tape.cpp`: TAP and TZX -> commands. TZX blocks played: 10 11 12 13 14 15 20 2B, control 21 22 23 24 25 26 27;
   skipped by length: 18 (CSW) 19 (generalized data) 28 (select) 2A (stop if 48K: this is a 128K) 30-35 40 5A and
   unknown blocks. Conventions: 100 ms low lead-in; a pause holds the level 1 ms if high, then low; TAP blocks =
   standard ROM timing with a 1 s pause.
-- Throughput: ~8 pilot/tone pulses per FIFO burst, ~30 instructions per other command; `DATA`/`SAMPLES` cover 8 bits
-  per command. Pulse sequences (0x13) shorter than ~300 T-states in long runs could underrun in turbo (not seen in
-  real files).
+- `hw.h` + `esp_hw.cpp`: the FPGA's registers as proxy objects over the link, SD card sectors (Arduino SD
+  `readRAW`/`writeRAW`), the OSD as a shadow sent in changed ranges, the loader task (core 1). Every 0.5 s it checks
+  that the FPGA was not reset (KEY0 clears the IRQ mask it set); after a reset the ESP32 restarts.
+- The portable files are plain C (built as C++ on the ESP32, as C for the PC tests).
 
 ## Build and test
 
 ```
-ASpectrum/fw/build.sh                  # firmware -> fw/build/fw0..3.hex (needed by Quartus and the simulations)
-quartus_sh --flow compile ASpectrum    # then quartus_cpf -c ASpectrum.cof for the .jic, as before
-ASpectrum/fw/test/run_host_test.sh     # PC: FAT16/FAT32 images, listing + every TAP/TZX signal vs tools/tzxref.py;
+quartus_sh --flow compile ASpectrum    # FPGA; quartus_cpf -c ASpectrum.cof for the .jic
+arduino-cli compile -b esp32:esp32:esp32 -u -p COM10 esp32       # ESP32 (in ASpectrum/)
+ASpectrum/esp32/test/run_host_test.sh  # PC: FAT16/FAT32 images, listing + every TAP/TZX signal vs tools/tzxref.py;
                                        #     saving: ROM SAVE pulse trains -> decoder -> files, checked by tools/fatcheck.py;
-                                       #     snapshots: snap.c against a model of the hardware: loading reference files
-                                       #     (fw/test/z80ref.py: versions 1/2/3, 48K/128K, stored pages, bad files), and
+                                       #     snapshots: snap.cpp against a model of the hardware: loading reference files
+                                       #     (test/z80ref.py: versions 1/2/3, 48K/128K, stored pages, bad files), and
                                        #     save + reload round trips checked by z80ref.py and fatcheck.py
-ASpectrum/sim/run_loader_sim.sh        # RTL: loader + SD card model: boot, browser, play short.tzx T-state exact, Stop;
-                                       #     recording: start from the browser, ROM-style MIC signal with CPU hold, F12,
-                                       #     file checked on the card image
-ASpectrum/sim/run_tapeload_sim.sh      # RTL: whole machine, 128K ROM loads a BASIC program from the card (~40 min)
+ASpectrum/sim/run_esp_link_sim.sh      # RTL: tape_loader over the SPI link: ID, registers, OSD, FIFO, 256-byte MWR/MRD
+                                       #     across a page, error flag with slow commands, IRQ on key change
 ASpectrum/sim/run_snap_sim.sh          # RTL: zx_bus + T80 + SDRAM: a Z80 test program (prefixes, DD CB, LDIR/CPIR,
                                        #     EXX, IM 2, HALT, paging, AY) run undisturbed, with random freezes + reads,
                                        #     and with random freezes + full restore (LOAD): identical results
-ASpectrum/sim/run_snapsys_sim.sh       # RTL: whole machine + firmware: F2, name, save to the card model, F12 + Enter
-                                       #     loads it back; loaded state = saved state; file checked by z80ref.py
 ```
 
-Test files are generated by `fw/tools/mktest.py` (TAP + a TZX with every handled block type incl. loops, jumps,
-calls, stop, skipped and unknown blocks) and packed by `fw/tools/mkimg.py` (FAT16/FAT32 image builder, fragments
-files on purpose). `fw/tools/tzxref.py` is an independent reference implementation of the signal.
+Hardware checks: `tests/Test_wires/` (every ESP32 <-> FPGA wire, the SD card), `tests/ESPLinkTest/` (link
+throughput, memory round trips, keys, OSD test pages).
+
+Test files are generated by `esp32/tools/mktest.py` (TAP + a TZX with every handled block type incl. loops, jumps,
+calls, stop, skipped and unknown blocks) and packed by `esp32/tools/mkimg.py` (FAT16/FAT32 image builder, fragments
+files on purpose). `esp32/tools/tzxref.py` is an independent reference implementation of the signal.
 
 Not covered yet: TZX 0x19 (generalized data), 0x18 (CSW), 0x28 (select block menu); text/message blocks are
 not shown; no auto-typing of `LOAD ""`; saving only in ROM format, 8.3 names, no overwrite. Snapshots: no

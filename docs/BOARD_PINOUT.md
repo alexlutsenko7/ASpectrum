@@ -113,9 +113,6 @@ cut (it would sit on VIN). J1 hangs outside the Cyclone board and its signals go
 | 49 | E22 | 6 | RH | VGA_R | out | |
 | 47 | F22 | 6 | HS | VGA_HSYNC | out | 22 Ω + 6p8 on the adapter |
 | 45 | H22 | 6 | VS | VGA_VSYNC | out | 22 Ω + 6p8 on the adapter |
-| 25 | W22 | 5 | Tape_out | — | in | never used: leave as input |
-| 23 | Y22 | 5 | Tape_in | TAPE_IN | in | tape simulator / SD card loader data |
-| 21 | AA20 | 4 | Turbo | TURBO_N | in | active low: low = 28 MHz turbo; 680 Ω pull-up on the adapter keeps it off when no loader is connected |
 | 19 | AA19 | 4 | Kb_out (J5.2) | KBD_TX ? | out? | keyboard module UART, 3.3 V. **Direction to confirm** on the module |
 | 17 | AA18 | 4 | Kb_in (J5.3) | KBD_RX ? | in? | 115200 baud. **Direction to confirm** |
 | 16 | AB17 | 4 | J2.49 GND | GND_TIE | **never drive high** | FPGA I/O hard-wired to GND: set as output driving ground (extra ground return) or input |
@@ -145,23 +142,23 @@ J1.2 (3v3).
 | 26 | B2 | J1.7 Rght | JOY_RIGHT_N | in | also DB9 pin 7 (harmless, plain joystick only) |
 | 27 | B3 | J1.13 Btn | JOY_FIRE_N | in | |
 
-These are the same U7 pins as in the 2026-10-05 proposal, so nothing moves for these signals. U7 7-14, 17-21 and
-28-60 are now free.
+| 7 | R1 | ESP32 GPIO35 | ESP_MISO | out | SPI link data to the ESP32 (esp32/) |
+| 8 | R2 | ESP32 GPIO34 | ESP_IRQ | out | link interrupt, active high |
+| 9 | P1 | ESP32 GPIO14 | ESP_SCK | in | link clock (8 MHz), weak pull-up |
+| 10 | P2 | ESP32 GPIO13 | ESP_MOSI | in | link data from the ESP32, weak pull-up |
+| 11 | N1 | ESP32 GPIO33 | ESP_CS_N | in | link select, weak pull-up |
+| 17 | H1 | ESP32 GPIO26 | BT_BCLK | in | I2S bit clock from the ESP32, weak pull-up |
+| 18 | H2 | ESP32 GPIO25 | BT_LRCK | in | I2S word select, weak pull-up |
+| 19 | F1 | ESP32 GPIO22 | BT_DATA | out | I2S data (machine sound) to the ESP32 |
+| 20 | F2 | ESP32 GPIO16 (RX2) | BT_TX | out | UART 115200 to the ESP32's Bluetooth part: the F3 menu |
+| 21 | E1 | ESP32 GPIO17 (TX2) | BT_RX | in | UART from the ESP32, weak pull-up |
 
-### U8 top — SD card (Adafruit 5683 MicroSD BFF), wired by the user 2026-10-08
+The ESP32 system controller uses U7.7-11 (SPI link) and U7.17-21 (I2S + UART) plus GND (U7.1/2); see
+ASpectrum/esp32/README.md. Free: U7.12-14 (N2, M1, M2), U7.22 (D2) and U7.28-60. The SD card is on the ESP32.
 
-BFF jumpers unmodified (CS = TX via SJ2). SCK/MOSI/MISO on 5 mm pins, CS by a 25 mm wire. 10 uF + 100 nF across
-3V3/GND at the BFF. Other BFF pins (RX, A0-A3, SDA, SCL, 5V) unconnected. U8.1-14 are above the adapter's J2
-(U8.15-64). See docs/SD_TAPE_LOADER.md.
+### U8 top
 
-| U8 pin | FPGA pin | BFF pin | Signal | Dir | Notes |
-|---|---|---|---|---|---|
-| 1/2 | — | JP3.6 GND | GND | | |
-| 3/4 | — | JP3.5 3.3V | 3V3 | power | core board 3.3 V |
-| 7 | AA13 | JP3.4 MOSI | SD_MOSI | out | |
-| 9 | AA14 | JP3.3 MISO | SD_MISO | in | FPGA weak pull-up ON (BFF has none) |
-| 11 | AA15 | JP3.2 SCK | SD_SCK | out | <= 400 kHz init, then 14 MHz |
-| 13 | AA16 | JP1.7 TX | SD_CS_N | out | idle high; weak pull-up ON so the card stays deselected before the loader runs |
+U8.1-14 are above the adapter's J2 (U8.15-64) and not used (the SD card is on the ESP32).
 
 U8.5/6 (AA11/AB11) are CLK15/CLK14 dedicated clock inputs: input-only, never use them for outputs.
 
@@ -173,12 +170,12 @@ U8.5/6 (AA11/AB11) are CLK15/CLK14 dedicated clock inputs: input-only, never use
 - AB17/AA17 are tied to GND: never drive them high. Unused pins must be plain inputs (Quartus "Reserve all unused
   pins: As input tri-stated", which is what DDR_TEST uses).
 - Know what is in the configuration flash: a demo image that drives header pins could fight the adapter
-  (GND ties, keyboard TX, Turbo pull-up). Program a safe image or erase the flash before powering up with the adapter.
+  (GND ties, keyboard TX). Program a safe image or erase the flash before powering up with the adapter.
 - Mechanical: the adapter hangs from U8 only; support the J1 side (spacer) so cable strain does not lever on U8.
 
 Electrical notes:
 - Inputs can get the FPGA's internal weak pull-up (~25 kOhm, `WEAK_PULL_UP_RESISTOR ON` in the .qsf); with the
-  QM_Atrix adapter the joystick, 50/60 and Turbo lines already have pull-ups on the adapter. For a long joystick cable, an external 4.7-10 kOhm pull-up and a
+  QM_Atrix adapter the joystick and 50/60 lines already have pull-ups on the adapter. For a long joystick cable, an external 4.7-10 kOhm pull-up and a
   100-330 Ohm series resistor per line make the input more robust (noise, ESD).
 - Inputs are synchronised (2 flip-flops) and the buttons/switches debounced in the FPGA.
 - During FPGA configuration all user pins are inputs with weak pull-ups: VGA/audio outputs float high for

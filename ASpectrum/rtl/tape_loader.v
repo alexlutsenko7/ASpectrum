@@ -1,5 +1,6 @@
 //=============================================================================
-// tape_loader -- SD card TAP/TZX player: PicoRV32 + RAM + SPI + pulse player + OSD port
+// tape_loader -- the loader hardware the ESP32 system controller drives: TAP/TZX
+// pulse player, MIC recorder, snapshot port, OSD port, keys, Bluetooth UART
 //
 // Clock: 56 MHz (sys_pll c2), synchronous to the 112 MHz system clock (same
 // PLL, edges aligned), so the crossings below are ordinary timed paths:
@@ -7,14 +8,11 @@
 //   tape_on/lvl/turbo, osd_* 56 -> 112 / pixel clock: levels, synchronised by the receiver
 //   snap_*                   request toggle + data held until the acknowledge toggles back
 //
-// CPU: PicoRV32 (rtl/picorv32, unmodified), RV32IMC (compressed code: the firmware
-// fits 32 KB with 400 folder entries), no IRQ/counters.
-// Memory map:
-//   0x0000_0000  RAM, RAM_WORDS x 32 bit (code, data, stack), 4 byte lanes loaded
-//                from FW0..FW3 at configuration (fw/build.sh)
-//   0x1000_0000  registers (fw/hw.h):
-//     00 SPI_DATA  W: send a byte   R: received byte
-//     04 SPI_CTRL  W: [0] card select, [15:8] half SCK period - 1   R: same + [31] busy
+// Register bus: driven by the ESP32 over the SPI link (rtl/esp_link.v, frames WR/RD/OSD/
+// FIFO/MWR/MRD/STAT); the ESP32 firmware's names are in esp32/src/hw.h.
+//   0x1000_0000  registers:
+//     00 ID        R: core ID 5A58_0001 ("ZX", link version 1)
+//     04 IRQ       R: [3:0] interrupt causes, [11:8] mask   W: [11:8] mask (see the link section)
 //     08 KEYS      R: loader keys
 //     0C FIFO      W: push command  R: [9:0] used entries, [16] player idle
 //     10 TAPE      W: [0] EAR from player, [1] turbo, [2] flush   R: [1:0]
@@ -31,19 +29,18 @@
 //     34 SNAPDAT   W: command data   R: result of the last command
 //     38 INTPOS    W/R: 50 Hz frame interrupt position in zx_video: [9:0] VGA line, [25:16] pixel (reset INT_POS);
 //                  [31] memory contention off (zx_bus; reset: on)
+//     3C UART      to the ESP32's Bluetooth part, 8N1 at BAUD: W: [8] send [7:0] (ignored while busy), [9] drop the
+//                  oldest received byte, [10] clear the overrun flag
+//                  R: [7:0] oldest received byte, [8] valid, [9] sending, [10] overrun (512-byte FIFO was full)
 //   0x2000_0000  OSD text (32 x 24 bytes, write only, byte stores)
 //
 // Recorder (saving): MIC (port FE bit 3) edges, timed in T-states like the
 // player. While armed, an unread event holds the Spectrum CPU (hold), so no
-// edge is lost however long the firmware takes (SD writes, the save dialog);
+// edge is lost however long the ESP32 takes (SD writes, the save dialog);
 // holding stops the T-states too, so the recorded timing is unaffected.
-// Each access takes 2 clocks (registered RAM / register read).
+// Each access takes 2 clocks (register read).
 //
-// SPI (mode 0): SCK = 56 MHz / (2 * (div + 1)); MOSI changes after the falling
-// edge; MISO is registered every clock and the value from one clock before the
-// falling edge is shifted in (> half a period after the card changed it).
-//
-// Pulse player: commands from a 512 x 32 FIFO (fw/hal.h):
+// Pulse player: commands from a 512 x 32 FIFO (esp32/src/hal.h):
 //   00: PULSE n     hold the level for n T-states, then toggle
 //   01: LEVEL l, n  set the level to l, hold n T-states
 //   10: DATA b, k   k+1 bits of b, MSB first; each bit = 2 pulses of len0 / len1
@@ -57,27 +54,18 @@
 `default_nettype none
 
 module tape_loader #(
-    parameter integer RAM_WORDS = 8192,                 // 32 KB, as fw/build.sh
+    parameter integer BAUD_DIV  = 486,                  // 56 MHz / 115200 (0.02 % fast)
     parameter [19:0]  INT_POS   = {10'd166, 10'd24},    // INTPOS after reset: {pixel, line} (zx_video; measured, see there)
-    parameter integer GAP_T     = 8000,                 // T-states without a MIC edge = end of a block
-    parameter         FW0 = "fw/build/fw0.hex",
-    parameter         FW1 = "fw/build/fw1.hex",
-    parameter         FW2 = "fw/build/fw2.hex",
-    parameter         FW3 = "fw/build/fw3.hex"
+    parameter integer GAP_T     = 8000                  // T-states without a MIC edge = end of a block
 )(
     input  wire        clk,             // 56 MHz
     input  wire        rst_n,           // synchronous to clk
 
-    input  wire [15:0] keys,            // loader keys (system clock domain)
+    input  wire [16:0] keys,            // loader keys (system clock domain)
     input  wire [31:0] keyraw,          // last keyboard report (system clock domain)
     input  wire        cen_tgl,         // toggles on every CPU T-state (system clock domain)
     input  wire        mic,             // port FE bit 3 (system clock domain)
     output wire        hold,            // pause the Spectrum CPU
-
-    output wire        sd_cs_n,
-    output reg         sd_sck,
-    output wire        sd_mosi,
-    input  wire        sd_miso,         // asynchronous pin
 
     output reg         tape_on,         // EAR from the player
     output reg         tape_turbo,
@@ -88,6 +76,13 @@ module tape_loader #(
     output reg         osd_we,
     output reg  [9:0]  osd_addr,
     output reg  [7:0]  osd_data,
+    output reg         bt_tx,           // UART to the ESP32 Bluetooth bridge (idle high)
+    input  wire        bt_rx,           // UART from the ESP32 (asynchronous pin)
+    input  wire        esp_sck,         // SPI link from the ESP32 system controller (rtl/esp_link.v)
+    input  wire        esp_mosi,
+    input  wire        esp_cs_n,
+    output wire        esp_miso,
+    output reg         esp_irq,
     output reg  [19:0] int_pos,         // frame interrupt {pixel, line} for zx_video (static, pixel clock synchronises)
     output reg         cont_on,         // memory contention on (zx_bus synchronises)
 
@@ -102,110 +97,40 @@ module tape_loader #(
     input  wire [31:0] snap_rdata
 );
 
-localparam integer AW = $clog2(RAM_WORDS);
-
 //-----------------------------------------------------------------------------
-// CPU
+// Register bus, driven by the ESP32 through the SPI link
 //-----------------------------------------------------------------------------
-wire        mem_valid, mem_instr;
+wire        mem_valid;
 wire [31:0] mem_addr, mem_wdata;
 wire [3:0]  mem_wstrb;
 reg         mem_ready;
 wire [31:0] mem_rdata;
 
-picorv32 #(
-    .ENABLE_COUNTERS      (0),
-    .ENABLE_COUNTERS64    (0),
-    .ENABLE_REGS_16_31    (1),
-    .ENABLE_REGS_DUALPORT (1),
-    .LATCHED_MEM_RDATA    (0),
-    .TWO_STAGE_SHIFT      (1),
-    .BARREL_SHIFTER       (0),
-    .TWO_CYCLE_COMPARE    (0),
-    .TWO_CYCLE_ALU        (0),
-    .COMPRESSED_ISA       (1),
-    .CATCH_MISALIGN       (0),
-    .CATCH_ILLINSN        (0),
-    .ENABLE_PCPI          (0),
-    .ENABLE_MUL           (1),
-    .ENABLE_FAST_MUL      (0),
-    .ENABLE_DIV           (1),
-    .ENABLE_IRQ           (0),
-    .ENABLE_TRACE         (0),
-    .REGS_INIT_ZERO       (0),
-    .PROGADDR_RESET       (32'h0000_0000),
-    .STACKADDR            (RAM_WORDS * 4)
-) u_cpu (
-    .clk          (clk),
-    .resetn       (rst_n),
-    .trap         (),
-    .mem_valid    (mem_valid),
-    .mem_instr    (mem_instr),
-    .mem_ready    (mem_ready),
-    .mem_addr     (mem_addr),
-    .mem_wdata    (mem_wdata),
-    .mem_wstrb    (mem_wstrb),
-    .mem_rdata    (mem_rdata),
-    .mem_la_read  (),
-    .mem_la_write (),
-    .mem_la_addr  (),
-    .mem_la_wdata (),
-    .mem_la_wstrb (),
-    .pcpi_valid   (),
-    .pcpi_insn    (),
-    .pcpi_rs1     (),
-    .pcpi_rs2     (),
-    .pcpi_wr      (1'b0),
-    .pcpi_rd      (32'd0),
-    .pcpi_wait    (1'b0),
-    .pcpi_ready   (1'b0),
-    .irq          (32'd0),
-    .eoi          (),
-    .trace_valid  (),
-    .trace_data   ()
+esp_link u_link (
+    .clk       (clk),
+    .rst_n     (rst_n),
+    .sck       (esp_sck),
+    .mosi      (esp_mosi),
+    .cs_n      (esp_cs_n),
+    .miso      (esp_miso),
+    .mem_valid (mem_valid),
+    .mem_addr  (mem_addr),
+    .mem_wdata (mem_wdata),
+    .mem_wstrb (mem_wstrb),
+    .mem_ready (mem_ready),
+    .mem_rdata (mem_rdata)
 );
 
-wire          access  = mem_valid && !mem_ready;
-wire          sel_ram = mem_addr[31:28] == 4'h0;
-wire          sel_io  = mem_addr[31:28] == 4'h1;
-wire          sel_osd = mem_addr[31:28] == 4'h2;
-wire          wr      = access && (mem_wstrb != 4'd0);
-wire [AW-1:0] wa      = mem_addr[AW+1:2];
-wire [3:0]    reg_a   = mem_addr[5:2];      // 16 registers
-
-//-----------------------------------------------------------------------------
-// RAM: one 8-bit block RAM per byte lane (portable byte enables)
-//-----------------------------------------------------------------------------
-// max_depth: build each lane from 1K x 8 blocks (6 M9K for 6144 words, not 8 x 8K x 1)
-(* max_depth = 1024 *) reg [7:0] ram0 [0:RAM_WORDS-1];
-(* max_depth = 1024 *) reg [7:0] ram1 [0:RAM_WORDS-1];
-(* max_depth = 1024 *) reg [7:0] ram2 [0:RAM_WORDS-1];
-(* max_depth = 1024 *) reg [7:0] ram3 [0:RAM_WORDS-1];
-reg [7:0] q0, q1, q2, q3;
-
-initial begin
-    $readmemh(FW0, ram0);
-    $readmemh(FW1, ram1);
-    $readmemh(FW2, ram2);
-    $readmemh(FW3, ram3);
-end
-
-wire ram_wr = wr && sel_ram;
-always @(posedge clk) begin
-    if (ram_wr && mem_wstrb[0]) ram0[wa] <= mem_wdata[7:0];
-    if (ram_wr && mem_wstrb[1]) ram1[wa] <= mem_wdata[15:8];
-    if (ram_wr && mem_wstrb[2]) ram2[wa] <= mem_wdata[23:16];
-    if (ram_wr && mem_wstrb[3]) ram3[wa] <= mem_wdata[31:24];
-    q0 <= ram0[wa];
-    q1 <= ram1[wa];
-    q2 <= ram2[wa];
-    q3 <= ram3[wa];
-end
+wire       access  = mem_valid && !mem_ready;
+wire       sel_io  = mem_addr[31:28] == 4'h1;
+wire       sel_osd = mem_addr[31:28] == 4'h2;
+wire       wr      = access && (mem_wstrb != 4'd0);
+wire [3:0] reg_a   = mem_addr[5:2];         // 16 registers
 
 //-----------------------------------------------------------------------------
 // Inputs from the system clock domain
 //-----------------------------------------------------------------------------
-reg [15:0] keys_s1, keys_s;
+reg [16:0] keys_s1, keys_s;
 reg [1:0]  sfrz_s, sack_s;
 reg [31:0] raw_s1, raw_s;
 reg [2:0] cen_s;
@@ -219,55 +144,6 @@ always @(posedge clk) begin
     sack_s  <= {sack_s[0], snap_ack};
 end
 wire tick = cen_s[2] ^ cen_s[1];
-
-//-----------------------------------------------------------------------------
-// SPI master
-//-----------------------------------------------------------------------------
-reg [7:0] spi_div, spi_dcnt, spi_sh;
-reg [2:0] spi_bit;
-reg       spi_busy, spi_cs, miso_r;
-
-assign sd_cs_n = !spi_cs;
-assign sd_mosi = spi_sh[7];
-
-always @(posedge clk) miso_r <= sd_miso;
-
-always @(posedge clk or negedge rst_n)
-    if (!rst_n) begin
-        spi_div  <= 8'd69;
-        spi_dcnt <= 8'd0;
-        spi_sh   <= 8'hFF;
-        spi_bit  <= 3'd0;
-        spi_busy <= 1'b0;
-        spi_cs   <= 1'b0;
-        sd_sck   <= 1'b0;
-    end else begin
-        if (wr && sel_io && reg_a == 4'd1) begin
-            spi_cs  <= mem_wdata[0];
-            spi_div <= mem_wdata[15:8];
-        end
-        if (wr && sel_io && reg_a == 4'd0) begin
-            spi_sh   <= mem_wdata[7:0];
-            spi_busy <= 1'b1;
-            spi_bit  <= 3'd7;
-            spi_dcnt <= spi_div;
-            sd_sck   <= 1'b0;
-        end else if (spi_busy) begin
-            if (spi_dcnt != 8'd0)
-                spi_dcnt <= spi_dcnt - 8'd1;
-            else begin
-                spi_dcnt <= spi_div;
-                if (!sd_sck)
-                    sd_sck <= 1'b1;                     // rising edge: the card samples MOSI
-                else begin
-                    sd_sck <= 1'b0;                     // falling edge: next bit
-                    spi_sh <= {spi_sh[6:0], miso_r};
-                    if (spi_bit == 3'd0) spi_busy <= 1'b0;
-                    else                 spi_bit  <= spi_bit - 3'd1;
-                end
-            end
-        end
-    end
 
 //-----------------------------------------------------------------------------
 // Command FIFO (512 x 32, block RAM) with a one-command look-ahead (nxt)
@@ -520,17 +396,137 @@ always @(posedge clk or negedge rst_n)
     end
 
 //-----------------------------------------------------------------------------
+// UART to the ESP32 Bluetooth part (esp32/esp32.ino): 8N1, 512-byte receive FIFO (one M9K, ~45 ms of
+// continuous data: the firmware may be busy for a few ms, e.g. redrawing the OSD)
+//-----------------------------------------------------------------------------
+wire       uart_wr = wr && sel_io && reg_a == 4'd15;
+reg  [9:0] tx_sh;                                       // {stop, data, start}, LSB first
+reg  [3:0] tx_n;                                        // bit times left (start, 8 data, stop, end of stop)
+reg  [9:0] tx_cnt;
+wire       tx_busy = tx_n != 4'd0;
+
+always @(posedge clk or negedge rst_n)
+    if (!rst_n) begin
+        tx_sh  <= 10'h3FF;
+        tx_n   <= 4'd0;
+        tx_cnt <= 10'd0;
+        bt_tx  <= 1'b1;
+    end else if (!tx_busy) begin
+        bt_tx <= 1'b1;
+        if (uart_wr && mem_wdata[8]) begin
+            tx_sh  <= {1'b1, mem_wdata[7:0], 1'b0};
+            tx_n   <= 4'd11;                            // busy until the stop bit has lasted a whole bit
+            tx_cnt <= 10'd0;
+        end
+    end else if (tx_cnt != 10'd0)
+        tx_cnt <= tx_cnt - 10'd1;
+    else begin
+        bt_tx  <= tx_sh[0];
+        tx_sh  <= {1'b1, tx_sh[9:1]};
+        tx_n   <= tx_n - 4'd1;
+        tx_cnt <= BAUD_DIV[9:0] - 10'd1;
+    end
+
+reg  [2:0] rx_s;
+reg  [9:0] rx_cnt;
+reg  [3:0] rx_n;                                        // 0 = idle, else bits still to sample (start, 8 data, stop)
+reg  [7:0] rx_sh;
+reg  [7:0] rx_fifo [0:511];
+reg  [7:0] rx_q;                                        // rx_fifo[rx_rp], 1 clock behind rx_rp
+reg  [8:0] rx_wp, rx_rp;
+reg  [9:0] rx_used;
+reg  [1:0] rx_seen;                                     // rx_used != 0 for 2 clocks: rx_q is valid
+reg        rx_ovr;
+wire       rx_valid = rx_used != 10'd0 && rx_seen[1];
+wire       rx_pop   = uart_wr && mem_wdata[9] && rx_valid;
+reg        rx_push;
+
+always @(posedge clk) begin
+    rx_s <= {rx_s[1:0], bt_rx};
+    if (rx_push) rx_fifo[rx_wp] <= rx_sh;
+    rx_q <= rx_fifo[rx_rp];
+end
+
+always @(posedge clk or negedge rst_n)
+    if (!rst_n) begin
+        rx_cnt  <= 10'd0;
+        rx_n    <= 4'd0;
+        rx_sh   <= 8'd0;
+        rx_wp   <= 9'd0;
+        rx_rp   <= 9'd0;
+        rx_used <= 10'd0;
+        rx_seen <= 2'd0;
+        rx_ovr  <= 1'b0;
+        rx_push <= 1'b0;
+    end else begin
+        rx_push <= 1'b0;
+        if (rx_n == 4'd0) begin
+            if (!rx_s[2]) begin                         // start bit: sample in the middle of each bit
+                rx_n   <= 4'd10;
+                rx_cnt <= BAUD_DIV[10:1];
+            end
+        end else if (rx_cnt != 10'd0)
+            rx_cnt <= rx_cnt - 10'd1;
+        else begin
+            rx_cnt <= BAUD_DIV[9:0] - 10'd1;
+            rx_n   <= rx_n - 4'd1;
+            if (rx_n == 4'd10 && rx_s[2])
+                rx_n <= 4'd0;                           // glitch, not a start bit
+            else if (rx_n >= 4'd2)
+                rx_sh <= {rx_s[2], rx_sh[7:1]};
+            else if (rx_s[2]) begin                     // stop bit: keep the byte
+                if (rx_used == 10'd512) rx_ovr <= 1'b1;
+                else                  rx_push <= 1'b1;
+            end
+        end
+        if (rx_push) rx_wp <= rx_wp + 9'd1;
+        if (rx_pop)  rx_rp <= rx_rp + 9'd1;
+        rx_used <= rx_used + (rx_push ? 10'd1 : 10'd0) - (rx_pop ? 10'd1 : 10'd0);
+        rx_seen <= rx_pop ? 2'd0 : {rx_seen[0], rx_used != 10'd0};   // after a pop rx_q follows 2 clocks later
+        if (uart_wr && mem_wdata[10]) rx_ovr <= 1'b0;
+    end
+
+//-----------------------------------------------------------------------------
+// ESP32 link: core ID (register 0x00) and interrupt (register 0x04)
+//   R 0x00: CORE_ID
+//   R 0x04: [3:0] causes, [11:8] mask; reading clears cause 1
+//   W 0x04: [11:8] mask
+// Causes: [0] player FIFO at most half full, [1] key state changed (latched),
+//         [2] recorder event pending, [3] snapshot command port idle
+// esp_irq = any cause whose mask bit is set (level, active high)
+//-----------------------------------------------------------------------------
+localparam [31:0] CORE_ID = 32'h5A58_0001;          // "ZX", link version 1
+reg  [3:0]  irq_mask;
+reg         key_chg;
+reg  [16:0] keys_p;
+reg  [31:0] raw_p;
+wire [3:0]  irq_cause = {snap_req == sack_s[1], rec_pend, key_chg, used <= 10'd256};
+always @(posedge clk or negedge rst_n)
+    if (!rst_n) begin
+        irq_mask <= 4'd0;
+        key_chg  <= 1'b0;
+        keys_p   <= 17'd0;
+        raw_p    <= 32'd0;
+        esp_irq  <= 1'b0;
+    end else begin
+        keys_p  <= keys_s;
+        raw_p   <= raw_s;
+        if (wr && sel_io && reg_a == 4'd1) irq_mask <= mem_wdata[11:8];
+        if (keys_p != keys_s || raw_p != raw_s) key_chg <= 1'b1;
+        else if (access && !wr && sel_io && reg_a == 4'd1) key_chg <= 1'b0;
+        esp_irq <= |(irq_cause & irq_mask);
+    end
+
+//-----------------------------------------------------------------------------
 // Control registers, OSD port, timer, read data
 //-----------------------------------------------------------------------------
 reg  [31:0] timer, io_q;
-reg         rd_ram;
 
-assign mem_rdata = rd_ram ? {q3, q2, q1, q0} : io_q;
+assign mem_rdata = io_q;
 
 always @(posedge clk or negedge rst_n)
     if (!rst_n) begin
         mem_ready  <= 1'b0;
-        rd_ram     <= 1'b0;
         io_q       <= 32'd0;
         timer      <= 32'd0;
         tape_on    <= 1'b0;
@@ -550,7 +546,6 @@ always @(posedge clk or negedge rst_n)
         snap_wdata <= 32'd0;
     end else begin
         mem_ready <= access;
-        rd_ram    <= sel_ram;
         timer     <= timer + 32'd1;
         flush     <= 1'b0;
         osd_we    <= 1'b0;
@@ -591,9 +586,9 @@ always @(posedge clk or negedge rst_n)
         end
 
         case (reg_a)
-            4'd0:    io_q <= {24'd0, spi_sh};
-            4'd1:    io_q <= {spi_busy, 15'd0, spi_div, 7'd0, spi_cs};
-            4'd2:    io_q <= {16'd0, keys_s};
+            4'd0:    io_q <= CORE_ID;
+            4'd1:    io_q <= {20'd0, irq_mask, 4'd0, irq_cause};
+            4'd2:    io_q <= {15'd0, keys_s};
             4'd3:    io_q <= {15'd0, idle, 6'd0, used};
             4'd4:    io_q <= {30'd0, tape_turbo, tape_on};
             4'd5:    io_q <= {30'd0, osd_full, osd_on};
@@ -604,6 +599,7 @@ always @(posedge clk or negedge rst_n)
             4'd11:   io_q <= {30'd0, snap_req != sack_s[1], sfrz_s[1]};
             4'd13:   io_q <= snap_rdata;
             4'd14:   io_q <= {!cont_on, 5'd0, int_pos[19:10], 6'd0, int_pos[9:0]};
+            4'd15:   io_q <= {21'd0, rx_ovr, tx_busy, rx_valid, rx_q};
             default: io_q <= raw_s;
         endcase
     end

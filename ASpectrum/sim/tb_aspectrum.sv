@@ -8,13 +8,7 @@
 //   +define+DIAG=0|1      hold F1 (USB keyboard frame) at start -> DiagROM
 //   +define+RUN_MS=<ms>   simulated time after the ROM load (default 120)
 //   +define+KEYS=<ms>     at <ms> after the ROM load, type DOWN, ENTER (menu -> 128 BASIC)
-//   +define+TAPELOAD=\"img\" +define+TL_MS=<ms>   SD card image (sd_card_model); at <ms>: ENTER
-//                         (menu -> Tape Loader), F12 (browser), ENTER (first file); then the ROM
-//                         loads it through the SD tape loader. Expects border 4 at the end.
-//   +define+SNAPTEST=\"img\" +define+SN_MS=<ms>   SD card image; at <ms>: F2, name SN1, ENTER
-//                         (snapshot saved by the firmware), then F12 + ENTER loads SN1.Z80 back.
-//                         Checks: the loaded RAM / registers / ports equal the saved state;
-//                         writes sn_exp.dump (state at the save) for fw/test/z80ref.py.
+//   The ESP32 link is idle (no system controller): the tape loader hardware stays off.
 // Output: progress lines, checks, and screen.ppm (picture of the screen shadow).
 //=============================================================================
 `timescale 1ns/1ps
@@ -62,17 +56,14 @@ reg  [15:0] dq_i;
 wire        f_dclk, f_ncs, f_mosi, f_miso;
 wire        vr, vrl, vg, vgl, vb, vbl, hs, vs, ay, beep, led;
 
-wire        sdc_cs_n, sdc_sck, sdc_mosi, sdc_miso;
-
 zx_system #(
     .FLASH_DIV(2), .KBD_WAIT_MS(1),
-    .FW0("../fw/build/fw0.hex"), .FW1("../fw/build/fw1.hex"), .FW2("../fw/build/fw2.hex"), .FW3("../fw/build/fw3.hex"),
-    .FONT_HEX("../rtl/osd_font.hex")
+    .FONT_HEX("../rtl/osd_font.hex"), .FORCE_TURBO(`TURBO)
 ) u_sys (
     .clk(clk), .por_n(rst_n), .rst_n(rst_n), .clk56(clk56), .rst56_n(rst_n),
     .pclk(pclk), .prst_n(prst_n), .mode50(1'b`MODE50),
-    .turbo_n(!`TURBO), .tape_in(1'b1), .kbd_rx(kbd_rx), .joy_n(5'b11111),
-    .sdc_cs_n(sdc_cs_n), .sdc_sck(sdc_sck), .sdc_mosi(sdc_mosi), .sdc_miso(sdc_miso),
+    .kbd_rx(kbd_rx), .joy_n(5'b11111),
+    .bt_tx(), .bt_rx(1'b1), .esp_sck(1'b0), .esp_mosi(1'b0), .esp_cs_n(1'b1), .esp_miso(), .esp_irq(),
     .kbd_f8_tgl(), .kbd_cad(),
     .sd_cke(cke), .sd_cs_n(cs_n), .sd_ras_n(ras_n), .sd_cas_n(cas_n), .sd_we_n(we_n),
     .sd_ba(ba), .sd_a(a), .sd_dqm(dqm), .sd_dq_o(dq_o), .sd_dq_oe(dq_oe), .sd_dq_i(dq_i),
@@ -80,14 +71,6 @@ zx_system #(
     .vga_r(vr), .vga_r_low(vrl), .vga_g(vg), .vga_g_low(vgl), .vga_b(vb), .vga_b_low(vbl),
     .vga_hs(hs), .vga_vs(vs), .audio_ay(ay), .audio_beeper(beep), .led(led)
 );
-
-`ifdef TAPELOAD
-sd_card_model #(.IMAGE(`TAPELOAD)) u_card (.sck(sdc_sck), .mosi(sdc_mosi), .cs_n(sdc_cs_n), .miso(sdc_miso));
-`elsif SNAPTEST
-sd_card_model #(.IMAGE(`SNAPTEST)) u_card (.sck(sdc_sck), .mosi(sdc_mosi), .cs_n(sdc_cs_n), .miso(sdc_miso));
-`else
-assign sdc_miso = 1'b1;                                     // no card
-`endif
 
 flash_model #(.REVERSE(1)) u_flash (.dclk(f_dclk), .ncs(f_ncs), .mosi(f_mosi), .miso(f_miso));
 
@@ -202,75 +185,6 @@ always @(posedge clk) if (u_sys.u_bus.p7ffd !== p7ffd_prev) begin
 end
 
 //-----------------------------------------------------------------------------
-// Snapshot test (SNAPTEST): save with F2 through the firmware, load it back
-//-----------------------------------------------------------------------------
-`ifdef SNAPTEST
-reg [7:0]  sn_ram [0:131071];
-reg [31:0] sn_regs [0:6];
-reg [7:0]  sn_ay [0:15];
-reg [7:0]  sn_sel, sn_7ffd, sn_border;
-// AY register bits that exist (jt49 reads unused bits as 0), R0..R15 from the right
-localparam [127:0] AYM = {8'hFF, 8'hFF, 8'h0F, 8'hFF, 8'hFF, 8'h1F, 8'h1F, 8'h1F,
-                          8'hFF, 8'h1F, 8'h0F, 8'hFF, 8'h0F, 8'hFF, 8'h0F, 8'hFF};
-
-task automatic key(input [7:0] k);
-    begin key_frame(8'h00, k); #3_000_000; key_frame(8'h00, 8'h00); #3_000_000; end
-endtask
-
-task automatic snap_test;
-    integer i, f, bad;
-    reg [31:0] w;
-    begin
-        $display("%t F2 (save snapshot)", $realtime);
-        key(8'h3B);
-        wait (u_sys.u_bus.snap_frozen === 1'b1);
-        #2_000_000;                                         // capture done (AY muted, select restored)
-        for (i = 0; i < 131072; i++) sn_ram[i] = sd_peek(i);
-        for (i = 0; i < 7; i++) sn_regs[i] = i == 6 ? {12'd0, u_sys.u_bus.cpu_regs[211:192]} : u_sys.u_bus.cpu_regs[32 * i +: 32];
-        if (!u_sys.u_bus.cpu_halt_n) sn_regs[2][15:0] = sn_regs[2][15:0] - 16'd1;
-        sn_sel = u_sys.u_bus.ay_sel; sn_7ffd = u_sys.u_bus.p7ffd; sn_border = u_sys.u_bus.border;
-        $display("%t frozen: PC %04h (HALT %0d), SP %04h, 7FFD %02h, IM %0d, IFF1 %0d", $realtime, sn_regs[2][15:0],
-                 !u_sys.u_bus.cpu_halt_n, sn_regs[1][31:16], sn_7ffd, sn_regs[6][17:16], sn_regs[6][18]);
-        key(8'h16); key(8'h11); key(8'h1E); key(8'h28);    // S N 1 Enter
-        $display("%t name typed, saving", $realtime);
-        // AY as before the freeze: the volume registers are restored by snap_resume
-        wait (u_sys.u_bus.snap_frozen === 1'b0);
-        for (i = 0; i < 16; i++) sn_ay[i] = u_sys.u_ay.u_jt49.regarray[i] & AYM[8 * i +: 8];
-        $display("%t saved, the Spectrum runs on (card writes %0d)", $realtime, u_card.n_write);
-        f = $fopen("sn_exp.dump", "wb");
-        for (i = 0; i < 131072; i++) $fwrite(f, "%c", sn_ram[i]);
-        for (i = 0; i < 7; i++) $fwrite(f, "%c%c%c%c", sn_regs[i][7:0], sn_regs[i][15:8], sn_regs[i][23:16], sn_regs[i][31:24]);
-        for (i = 0; i < 16; i++) $fwrite(f, "%c", sn_ay[i]);
-        $fwrite(f, "%c%c%c", sn_sel, sn_7ffd, sn_border);
-        $fclose(f);
-        #20_000_000;
-        $display("%t F12, ENTER (load SN1.Z80)", $realtime);
-        key(8'h45); #10_000_000;
-        key_frame(8'h00, 8'h28);
-        wait (u_sys.u_bus.snap_frozen === 1'b1);
-        $display("%t frozen for loading", $realtime);
-        wait (u_sys.u_bus.loaded === 1'b1);
-        bad = 0;
-        for (i = 0; i < 131072; i++) if (sd_peek(i) !== sn_ram[i]) begin bad++; if (bad <= 5) $display("  ERROR RAM %05h = %02h, saved %02h", i, sd_peek(i), sn_ram[i]); end
-        for (i = 0; i < 7; i++) begin
-            w = i == 6 ? {12'd0, u_sys.u_bus.cpu_regs[211:192]} : u_sys.u_bus.cpu_regs[32 * i +: 32];
-            if (w !== sn_regs[i]) begin bad++; $display("  ERROR register word %0d = %08h, saved %08h", i, w, sn_regs[i]); end
-        end
-        wait (u_sys.u_bus.snap_frozen === 1'b0);
-        if (u_sys.u_bus.p7ffd !== sn_7ffd || u_sys.u_bus.border !== sn_border || u_sys.u_bus.ay_sel !== sn_sel) begin
-            bad++; $display("  ERROR ports: 7FFD %02h border %0d AY select %02h", u_sys.u_bus.p7ffd, u_sys.u_bus.border, u_sys.u_bus.ay_sel);
-        end
-        for (i = 0; i < 16; i++) if ((u_sys.u_ay.u_jt49.regarray[i] & AYM[8 * i +: 8]) !== sn_ay[i]) begin bad++; $display("  ERROR AY R%0d", i); end
-        key_frame(8'h00, 8'h00);
-        $display("%t snapshot loaded back: %0d differences from the saved state", $realtime, bad);
-        errors += bad;
-        #20_000_000;
-        $display("%t running after the load: PC~%04h", $realtime, last_pc);
-    end
-endtask
-`endif
-
-//-----------------------------------------------------------------------------
 // Run
 //-----------------------------------------------------------------------------
 integer i, bad;
@@ -300,23 +214,6 @@ initial begin
         if (i % 10 == 0)
             $display("%t %0d ms: PC~%04h  M1=%0d  T-states=%0d  INTs=%0d  stall clks=%0d  border=%0d  diag=%0d  SDRAM model errors=%0d",
                      $realtime, i, last_pc, m1_count, cen_count, ints, stall_clk, u_sys.u_bus.border, u_sys.u_bus.diag_rom, u_sdram.errors);
-`ifdef TAPELOAD
-        if (i % 10 == 0)
-            $display("%t   tape loader: on=%0d turbo=%0d marker=%0d osd=%0d/%0d card reads=%0d", $realtime,
-                     u_sys.u_tape.tape_on, u_sys.u_tape.tape_turbo, u_sys.u_tape.marker,
-                     u_sys.u_tape.osd_on, u_sys.u_tape.osd_full, u_card.n_read);
-        if (i == `TL_MS) begin
-            $display("%t ENTER (Tape Loader), F12, ENTER (first file)", $realtime);
-            key_frame(8'h00, 8'h28); #5_000_000; key_frame(8'h00, 8'h00); #20_000_000;
-            key_frame(8'h00, 8'h45); #5_000_000; key_frame(8'h00, 8'h00); #10_000_000;
-            $display("%t browser: on=%0d full=%0d", $realtime, u_sys.u_tape.osd_on, u_sys.u_tape.osd_full);
-            key_frame(8'h00, 8'h28); #5_000_000; key_frame(8'h00, 8'h00);
-            $display("%t playing: on=%0d turbo=%0d", $realtime, u_sys.u_tape.tape_on, u_sys.u_tape.tape_turbo);
-        end
-`endif
-`ifdef SNAPTEST
-        if (i == `SN_MS) snap_test;
-`endif
 `ifdef KEYS
         if (i == `KEYS) begin                   // menu is up: cursor down, ENTER -> "128 BASIC"
             $display("%t typing DOWN, ENTER", $realtime);
@@ -328,10 +225,6 @@ initial begin
     end
     dump_screen("screen.ppm");
     if (u_sdram.errors) errors++;
-`ifdef TAPELOAD
-    if (u_sys.u_bus.border !== 3'd4) begin errors++; $display("ERROR: border is %0d, expected 4 (program not loaded and run)", u_sys.u_bus.border); end
-    else $display("tape load OK: the program ran (border 4, a colour the ROM loader never uses)");
-`endif
     if (errors) $display("FAIL (%0d errors)", errors); else $display("DONE (no errors detected)");
     $finish;
 end

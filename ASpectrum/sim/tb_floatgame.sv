@@ -111,7 +111,7 @@ wire [2:0]  border;
 
 zx_bus u_bus (
     .clk(clk), .rst_n(rst_n), .run(run), .turbo(1'b0), .diag_key(1'b0), .vid50(1'b0), .vsync_n(1'b1),
-    .kb_rows(kb_rows), .joy(joy), .tape_in(1'b1), .ltape_on(1'b0), .ltape_lvl(1'b0),
+    .kb_rows(kb_rows), .joy(joy), .ltape_on(1'b0), .ltape_lvl(1'b0),
     .cen_tgl(cen_tgl), .hold(1'b0), .mic(mic),
     .sd_req(bus_req), .sd_we(bus_we), .sd_addr(bus_addr), .sd_din(bus_din), .sd_dout(ram_dout), .sd_ack(ram_ack),
     .sh_we(sh_we), .sh_page7(sh_page7), .sh_addr(sh_addr), .sh_data(sh_data),

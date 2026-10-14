@@ -30,8 +30,7 @@
 //   write A15=0, A1=0   port 7FFD: RAM page [2:0], screen [3], ROM [4], lock [5]
 //   write A15=1 A14=1 A1=0  AY register select (FFFD); A15=1 A14=0 A1=0  AY data (BFFD)
 //   read  A0=0          keyboard (A8-A15 select rows), EAR on bit 6, bits 5/7 = 1
-//                       EAR = SD tape loader while it plays (ltape_on), else the
-//                       TAPE_IN pin for 75 ms after each edge, else the beeper
+//                       EAR = SD tape loader while it plays (ltape_on), else the beeper
 //   read  FFFD          AY register
 //   read  A0=1 A5=0     Kempston joystick (port 1F)
 //   other reads         floating bus (see below), 0xFF in turbo or with contention off
@@ -68,7 +67,7 @@
 //   T - 14364: half of the contended polls saw a bitmap byte, Sidewize synced early
 //   and its player flickered.)
 //
-// Snapshots (.z80 save/load by the tape loader CPU, fw/snap.c):
+// Snapshots (.z80 save/load by the ESP32 loader firmware, esp32/src/snap.c):
 //   snap_freeze stops the CPU at the next instruction boundary: in T2 of an
 //   opcode fetch (M1) that is not an interrupt acknowledge and does not follow a
 //   prefix (CB/ED/DD/FD). There the T80 has written back the previous
@@ -97,8 +96,7 @@
 module zx_bus #(
     parameter [31:0] INC_NORMAL   = 32'd136016246,   // 3.5469 MHz at 112 MHz
     parameter [31:0] INC_TURBO    = 32'd1073741824,  // 28 MHz = every 4 clocks
-    parameter integer FRAME_T     = 70908,           // T-states per 128K frame
-    parameter integer TAPE_HOLD   = 23               // EAR follows the tape for 2^23 clk (75 ms) after an edge
+    parameter integer FRAME_T     = 70908            // T-states per 128K frame
 )(
     input  wire        clk,             // 112 MHz
     input  wire        rst_n,           // system reset (CPU and ports)
@@ -110,7 +108,6 @@ module zx_bus #(
     input  wire        vsync_n,         // video frame interrupt mark, falling edge (other clock domain)
     input  wire [39:0] kb_rows,         // 8 rows x 5 keys, active low, row i = A(8+i)
     input  wire [4:0]  joy,             // Kempston: fire, up, down, left, right (active high)
-    input  wire        tape_in,         // asynchronous
     input  wire        ltape_on,        // SD tape loader drives EAR (56 MHz domain)
     input  wire        ltape_lvl,
     output reg         cen_tgl,         // toggles on every T-state (incl. contention; for the tape loader)
@@ -159,7 +156,7 @@ module zx_bus #(
 //-----------------------------------------------------------------------------
 // Synchronisers
 //-----------------------------------------------------------------------------
-reg [2:0] turbo_s, vid50_s, vsync_s, tape_s, diag_s;
+reg [2:0] turbo_s, vid50_s, vsync_s, diag_s;
 reg [1:0] lon_s, llvl_s, hold_s, sfrz_s, cont_s;
 reg [2:0] sreq_s;
 always @(posedge clk) begin
@@ -172,7 +169,6 @@ always @(posedge clk) begin
     turbo_s <= {turbo_s[1:0], turbo};
     vid50_s <= {vid50_s[1:0], vid50};
     vsync_s <= {vsync_s[1:0], vsync_n};
-    tape_s  <= {tape_s[1:0],  tape_in};
     diag_s  <= {diag_s[1:0],  diag_key};
 end
 
@@ -492,9 +488,6 @@ always @(posedge clk or negedge cpu_rst_n)
 //-----------------------------------------------------------------------------
 // I/O ports
 //-----------------------------------------------------------------------------
-reg [TAPE_HOLD-1:0] tape_cnt;
-reg                 tape_active, tape_prev;
-
 // Keyboard: AND of all rows selected by a zero on A8..A15
 reg [4:0] kb_and;
 integer   r;
@@ -504,7 +497,7 @@ always @* begin
         if (!a_lat[8 + r]) kb_and = kb_and & kb_rows[5*r +: 5];
 end
 
-wire ear = lon_s[1] ? llvl_s[1] : tape_active ? !tape_s[2] : beeper;
+wire ear = lon_s[1] ? llvl_s[1] : beeper;
 
 reg [7:0] ay_sel;                       // last AY register select (for snapshots)
 reg       s_ay_bdir, s_ay_bc1, s_port_we, s_aysel;
@@ -526,9 +519,6 @@ always @(posedge clk or negedge cpu_rst_n)
         ay_bdir     <= 1'b0;
         ay_bc1      <= 1'b0;
         ay_din      <= 8'd0;
-        tape_cnt    <= 0;
-        tape_active <= 1'b0;
-        tape_prev   <= 1'b0;
     end else begin
         ay_bdir <= 1'b0;
         ay_bc1  <= 1'b0;
@@ -561,16 +551,6 @@ always @(posedge clk or negedge cpu_rst_n)
             mic    <= snap_wdata[11];
             beeper <= snap_wdata[12];
         end
-
-        // EAR: follow the tape input for a while after each edge, else the beeper
-        tape_prev <= tape_s[2];
-        if (tape_s[2] != tape_prev) begin
-            tape_active <= 1'b1;
-            tape_cnt    <= 0;
-        end else if (&tape_cnt)
-            tape_active <= 1'b0;
-        else
-            tape_cnt <= tape_cnt + 1'b1;
     end
 
 //-----------------------------------------------------------------------------

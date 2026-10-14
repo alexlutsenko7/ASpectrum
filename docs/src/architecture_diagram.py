@@ -87,8 +87,7 @@ osc   = box(30,   110, 250, 70, ["50 MHz OSC"], GREY)
 flash = box(30,   250, 250, 90, ["CONFIG FLASH", "W25Q64 (ROMs)"], GREY)
 kbd   = box(30,   440, 250, 90, ["USB KEYBOARD", "UART 115200"], GREY)
 joy   = box(30,   590, 250, 70, ["JOYSTICK"], GREY)
-tape  = box(30,   700, 250, 90, ["TAPE_IN", "TURBO_N"], GREY)
-sdc   = box(30,   900, 250, 90, ["SD CARD", "FAT16/FAT32"], GREY)
+esp   = box(30,   860, 250, 170, ["ESP32", "SD CARD", "LOADER FW", "BLUETOOTH"], GREY)
 
 sdram = box(1540, 250, 230, 90, ["SDRAM 32 MB", "W9825G6KH"], GREY)
 vga   = box(1540, 500, 230, 90, ["VGA MONITOR", "576p / 480p"], GREY)
@@ -96,16 +95,16 @@ amp   = box(1540, 760, 230, 90, ["AUDIO AMP", "AY + BEEPER"], GREY)
 
 # ---- FPGA ------------------------------------------------------------------
 frame(320, 95, 1190, 1000, (150, 150, 150), 2)
-text(330, 1068, "FPGA EP4CE15F23C8", (120, 120, 120), 2)
+text(1100, 1068, "FPGA EP4CE15F23C8", (120, 120, 120), 2)
 
 pll   = box(350,  110, 330, 70, ["PLLs 112/56 + 25/27"], BLUE)
 ldr   = box(350,  250, 330, 90, ["rom_loader", "flash -> SDRAM"], BLUE)
 kb    = box(350,  440, 330, 90, ["zx_keyboard", "matrix, F1 F8 F12.."], BLUE)
-tl    = box(350,  860, 330, 170, ["tape_loader", "PicoRV32 32 KB", "SPI, FIFO, player,", "recorder"], GREEN)
+tl    = box(350,  860, 330, 170, ["tape_loader", "esp_link (SPI)", "FIFO, player,", "recorder, UART"], GREEN)
 
 cpu   = box(760,  110, 330, 90, ["T80 CPU", "clock enable 3.5/28"], BLUE)
 bus   = box(760,  250, 330, 410, ["zx_bus", "", "CEN generator", "bus bridge", "paging 7FFD", "ports FE 1F FFFD", "interrupt", "EAR / tape"], BLUE)
-ay    = box(760,  740, 330, 90, ["AY-3-8912 (JT49)", "sigma-delta DAC"], BLUE)
+ay    = box(760,  740, 330, 90, ["AY-3-8912 (JT49)", "DAC + bt_i2s"], BLUE)
 
 ram   = box(1170, 250, 310, 90, ["sdram_ram", "controller 112 MHz"], BLUE)
 vid   = box(1170, 470, 310, 150, ["zx_video", "screen shadows", "VGA timing", "OSD overlay"], ORANGE)
@@ -115,8 +114,7 @@ arrow_h(280, 350, 145)                                   # osc -> plls
 arrow_h(280, 350, 295, both=True)                        # flash <-> rom_loader
 arrow_h(280, 350, 485)                                   # keyboard -> zx_keyboard
 arrow_h(280, 760, 625)                                   # joystick -> bus
-arrow_h(280, 760, 745)                                   # tape in -> bus
-arrow_h(280, 350, 945, both=True)                        # sd card <-> tape loader
+arrow_h(280, 350, 945, both=True)                        # ESP32 <-> tape loader (SPI link)
 arrow_v(925, 200, 250, both=True)                        # cpu <-> bus
 hline(680, 720, 295); vline(720, 295, 210); hline(720, 1130, 210); vline(1130, 210, 285)  # rom_loader -> ram (over the bus)
 head(1130, 285, 'd')
@@ -131,6 +129,8 @@ hline(1090, 1520, 805); head(1540, 805, 'r'); hline(1520, 1540, 805)   # ay -> a
 hline(680, 720, 900); vline(720, 900, 600); arrow_h(720, 760, 600); head(680, 900, 'l')   # tape loader <-> bus (EAR, turbo / MIC, hold)
 hline(680, 1325, 1000); arrow_v(1325, 1000, 620)                       # tape loader -> OSD
 vline(560, 530, 860); head(560, 860, 'd')                               # keyboard -> tape loader keys
+vline(1525, 805, 1105); hline(100, 1525, 1105); vline(100, 1030, 1105); head(100, 1030, 'u')  # sound as I2S -> ESP32
+vline(640, 1030, 1052); hline(200, 640, 1052); vline(200, 1030, 1052); head(200, 1030, 'u'); head(640, 1030, 'u')  # tape loader <-> ESP32 UART (F3 menu)
 
 # small labels
 LBL = (70, 70, 70)
@@ -139,6 +139,9 @@ text(732, 888, "MIC, hold", LBL, 2)
 text(1340, 945, "OSD text", LBL, 2)
 text(572, 640, "keys", LBL, 2)
 text(1000, 220, "ROMs", LBL, 2)
+text(1452, 1112 - 30, "I2S", LBL, 2)
+text(286, 912, "SPI", LBL, 2)
+text(420, 1036, "UART", LBL, 2)
 
 # ---- PNG -------------------------------------------------------------------
 raw = b"".join(b"\x00" + bytes(img[y * W * 3:(y + 1) * W * 3]) for y in range(H))

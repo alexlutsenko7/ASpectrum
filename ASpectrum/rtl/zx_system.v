@@ -3,7 +3,7 @@
 //
 //   clk   112 MHz system clock: SDRAM controller, ROM loader, CPU + bus, AY,
 //         keyboard, audio
-//   clk56 56 MHz from the same PLL (edges aligned with clk): SD tape loader
+//   clk56 56 MHz from the same PLL (edges aligned with clk): tape loader hardware + ESP32 link
 //   pclk  pixel clock (25 or 27 MHz, mode50 selects the timing): video
 //
 // Resets: por_n (power-up only): keyboard, so held keys survive a machine
@@ -20,11 +20,8 @@ module zx_system #(
     parameter integer CLK_MHZ     = 112,
     parameter integer FLASH_DIV   = 4,
     parameter integer KBD_WAIT_MS = 1500,
-    parameter         FW0 = "fw/build/fw0.hex",
-    parameter         FW1 = "fw/build/fw1.hex",
-    parameter         FW2 = "fw/build/fw2.hex",
-    parameter         FW3 = "fw/build/fw3.hex",
-    parameter         FONT_HEX = "rtl/osd_font.hex"
+    parameter         FONT_HEX = "rtl/osd_font.hex",
+    parameter [0:0]   FORCE_TURBO = 1'b0                // simulation: CPU always at 28 MHz (faster boot)
 )(
     input  wire        clk,
     input  wire        por_n,           // synchronous to clk: power-up only
@@ -36,8 +33,6 @@ module zx_system #(
     input  wire        mode50,          // video mode (static while prst_n = 1)
 
     // board / adapter inputs (asynchronous)
-    input  wire        turbo_n,
-    input  wire        tape_in,
     input  wire        kbd_rx,
     input  wire [4:0]  joy_n,           // fire, up, down, left, right (active low)
 
@@ -53,12 +48,6 @@ module zx_system #(
     output wire [15:0] sd_dq_o,
     output wire        sd_dq_oe,
     input  wire [15:0] sd_dq_i,
-
-    // SD card (SPI)
-    output wire        sdc_cs_n,
-    output wire        sdc_sck,
-    output wire        sdc_mosi,
-    input  wire        sdc_miso,
 
     // keyboard machine keys (clk domain)
     output wire        kbd_f8_tgl,      // 50/60 Hz swap
@@ -83,8 +72,18 @@ module zx_system #(
     // audio
     output wire        audio_ay,
     output wire        audio_beeper,
+    input  wire        bt_bclk,         // ESP32 Bluetooth bridge: I2S master clocks (asynchronous)
+    input  wire        bt_lrck,
+    output wire        bt_data,         // I2S data to the ESP32
+    output wire        bt_tx,           // UART to the ESP32's Bluetooth part (F3 menu)
+    input  wire        bt_rx,           // UART from the ESP32 (asynchronous)
+    input  wire        esp_sck,         // SPI link from the ESP32 system controller (asynchronous)
+    input  wire        esp_mosi,
+    input  wire        esp_cs_n,
+    output wire        esp_miso,
+    output wire        esp_irq,
 
-    output reg         led              // on = turbo (pin or tape loader); fast blink = ROMs missing in flash
+    output reg         led              // on = turbo (tape loader); fast blink = ROMs missing in flash
 );
 
 //-----------------------------------------------------------------------------
@@ -142,7 +141,7 @@ rom_loader #(.DIV(FLASH_DIV)) u_loader (
 // Keyboard (power-on reset only), AY
 //-----------------------------------------------------------------------------
 wire [39:0] kb_rows;
-wire [15:0] lkeys;
+wire [16:0] lkeys;
 wire        kb_f1, kb_seen;
 wire [31:0] kb_raw;
 wire        l_osd_on, l_osd_full;
@@ -220,6 +219,7 @@ sd_dac #(.W(10)) u_dac (
 wire        sh_we, sh_page7, screen7, beeper, diag_rom, cpu_running, cen_tgl;
 wire        l_tape_on, l_tape_lvl, l_turbo, l_hold, mic;
 wire        snap_freeze, snap_req, snap_frozen, snap_ack;
+wire        cont_on;                // memory contention on (tape loader register, F5)
 wire        frame_n;                // frame interrupt mark (zx_video, pixel clock)
 wire [3:0]  snap_cmd;
 wire [17:0] snap_addr;
@@ -232,13 +232,12 @@ zx_bus u_bus (
     .clk         (clk),
     .rst_n       (rst_n),
     .run         (ld_done & kbd_ready),
-    .turbo       (!turbo_n | l_turbo),
+    .turbo       (FORCE_TURBO | l_turbo),
     .diag_key    (kb_f1),
     .vid50       (mode50),
     .vsync_n     (frame_n),         // frame interrupt mark from the video (50 Hz mode)
     .kb_rows     (kb_rows),
     .joy         (~joy_n),
-    .tape_in     (tape_in),
     .ltape_on    (l_tape_on),
     .ltape_lvl   (l_tape_lvl),
     .cen_tgl     (cen_tgl),
@@ -276,16 +275,28 @@ zx_bus u_bus (
 
 assign audio_beeper = beeper;
 
+// Same sound as I2S for the ESP32 Bluetooth part (esp32/)
+bt_i2s u_bt (
+    .clk      (clk),
+    .rst_n    (rst_n),
+    .ay_cen   (ay_cen),
+    .ay_sound (ay_sound),
+    .beeper   (beeper),
+    .i2s_bclk (bt_bclk),
+    .i2s_lrck (bt_lrck),
+    .i2s_data (bt_data)
+);
+
 //-----------------------------------------------------------------------------
-// SD card tape loader (56 MHz); also saves / loads .z80 snapshots through zx_bus
+// Tape loader hardware (56 MHz), driven by the ESP32 over the SPI link; also saves /
+// loads .z80 snapshots through zx_bus
 //-----------------------------------------------------------------------------
 wire       osd_we;
 wire [19:0] int_pos;
-wire        cont_on;
 wire [9:0] osd_addr;
 wire [7:0] osd_data;
 
-tape_loader #(.FW0(FW0), .FW1(FW1), .FW2(FW2), .FW3(FW3)) u_tape (
+tape_loader u_tape (
     .clk        (clk56),
     .rst_n      (rst56_n),
     .keys       (lkeys),
@@ -293,10 +304,6 @@ tape_loader #(.FW0(FW0), .FW1(FW1), .FW2(FW2), .FW3(FW3)) u_tape (
     .cen_tgl    (cen_tgl),
     .mic        (mic),
     .hold       (l_hold),
-    .sd_cs_n    (sdc_cs_n),
-    .sd_sck     (sdc_sck),
-    .sd_mosi    (sdc_mosi),
-    .sd_miso    (sdc_miso),
     .tape_on    (l_tape_on),
     .tape_turbo (l_turbo),
     .tape_lvl   (l_tape_lvl),
@@ -314,7 +321,14 @@ tape_loader #(.FW0(FW0), .FW1(FW1), .FW2(FW2), .FW3(FW3)) u_tape (
     .snap_wdata (snap_wdata),
     .snap_frozen (snap_frozen),
     .snap_ack   (snap_ack),
-    .snap_rdata (snap_rdata)
+    .snap_rdata (snap_rdata),
+    .bt_tx      (bt_tx),
+    .bt_rx      (bt_rx),
+    .esp_sck    (esp_sck),
+    .esp_mosi   (esp_mosi),
+    .esp_cs_n   (esp_cs_n),
+    .esp_miso   (esp_miso),
+    .esp_irq    (esp_irq)
 );
 
 //-----------------------------------------------------------------------------
@@ -356,7 +370,7 @@ reg [22:0] blink;
 reg [2:0]  turbo_s;
 always @(posedge clk) begin
     blink   <= blink + 23'd1;
-    turbo_s <= {turbo_s[1:0], !turbo_n | l_turbo};
+    turbo_s <= {turbo_s[1:0], FORCE_TURBO | l_turbo};
     led     <= bad_image ? blink[22] : !turbo_s[2];
 end
 

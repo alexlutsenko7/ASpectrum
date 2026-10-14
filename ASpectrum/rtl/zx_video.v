@@ -76,10 +76,39 @@ module zx_video #(
 //-----------------------------------------------------------------------------
 // Shadows (simple dual port, separate clocks)
 //-----------------------------------------------------------------------------
+// 7 blocks of 1K x 8 per shadow. For Quartus they are explicit altsyncrams: inferred from the
+// arrays, synthesis counts 8 M9K each (8K x 1 slices). Simulation uses the arrays (testbenches
+// read them).
+reg  [7:0]  q5, q7;
+reg  [12:0] raddr;
+`ifdef ALTERA_RESERVED_QIS
+wire [7:0]  q5w, q7w;
+always @* begin q5 = q5w; q7 = q7w; end
+
+altsyncram #(
+    .operation_mode ("DUAL_PORT"), .intended_device_family ("Cyclone IV E"), .ram_block_type ("M9K"),
+    .width_a (8), .widthad_a (13), .numwords_a (6912), .width_b (8), .widthad_b (13), .numwords_b (6912),
+    .maximum_depth (1024), .address_reg_b ("CLOCK1"), .outdata_reg_b ("UNREGISTERED"),
+    .address_aclr_b ("NONE"), .outdata_aclr_b ("NONE"), .power_up_uninitialized ("FALSE"),
+    .lpm_type ("altsyncram")
+) u_sh5 (
+    .clock0 (wclk), .address_a (sh_addr), .data_a (sh_data), .wren_a (sh_we && !sh_page7),
+    .clock1 (pclk), .address_b (raddr), .q_b (q5w)
+);
+
+altsyncram #(
+    .operation_mode ("DUAL_PORT"), .intended_device_family ("Cyclone IV E"), .ram_block_type ("M9K"),
+    .width_a (8), .widthad_a (13), .numwords_a (6912), .width_b (8), .widthad_b (13), .numwords_b (6912),
+    .maximum_depth (1024), .address_reg_b ("CLOCK1"), .outdata_reg_b ("UNREGISTERED"),
+    .address_aclr_b ("NONE"), .outdata_aclr_b ("NONE"), .power_up_uninitialized ("FALSE"),
+    .lpm_type ("altsyncram")
+) u_sh7 (
+    .clock0 (wclk), .address_a (sh_addr), .data_a (sh_data), .wren_a (sh_we && sh_page7),
+    .clock1 (pclk), .address_b (raddr), .q_b (q7w)
+);
+`else
 reg [7:0] sh5 [0:6911];
 reg [7:0] sh7 [0:6911];
-reg [7:0] q5, q7;
-reg [12:0] raddr;
 
 always @(posedge wclk)
     if (sh_we) begin
@@ -91,6 +120,7 @@ always @(posedge pclk) begin
     q5 <= sh5[raddr];
     q7 <= sh7[raddr];
 end
+`endif
 
 //-----------------------------------------------------------------------------
 // OSD text (simple dual port, separate clocks) and font ROM

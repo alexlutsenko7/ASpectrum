@@ -8,30 +8,30 @@ Architecture and decisions: `../docs/PLAN.md`, CPU clock-enable analysis: `../do
 
 | Part | Implementation |
 |---|---|
-| CPU | T80 (MiSTer @af0e6723, `../T80/`) in `cpu_t80` (single clock enable), 3.5469 MHz, or 28 MHz while TURBO_N is low |
+| CPU | T80 (MiSTer @af0e6723, `../T80/`) in `cpu_t80` (single clock enable), 3.5469 MHz, or 28 MHz while the SD tape loader plays or saves (F6: normal speed) |
 | System clock | 112 MHz (sys_pll); CPU stepped by a phase accumulator; SDRAM stalls hold the clock enable (turbo only) |
 | RAM + ROM | W9825G6KH SDRAM via `sdram_ram` (DDR_TEST, proven at 112 MHz): RAM pages 0-7, ROM 0/1, DiagROM |
 | ROMs | in the configuration flash at 0x100000 (in the .jic), copied to SDRAM at power-up/reset by `rom_loader` (~14 ms) |
 | Video | 640x480@60 (25 MHz) or 720x576@50 (27 MHz) VGA, 2-bit RGB, from block-RAM shadows of pages 5/7 |
-| Sound | AY-3-8912 (JT49, GPL-3) at 1.7734 MHz -> sigma-delta on AUDIO_AY; beeper on AUDIO_BEEPER |
+| Sound | AY-3-8912 (JT49, GPL-3) at 1.7734 MHz -> sigma-delta on AUDIO_AY; beeper on AUDIO_BEEPER; the same mix as I2S (`bt_i2s`) to the ESP32, which sends it to Bluetooth headphones / speakers (`esp32/`) |
 | Keyboard | USB keyboard via the CH9350-style UART module (115200), packet format as the DE10-Lite reference |
 | Joystick | Kempston (port 1F) |
-| Tape | TAPE_IN on the EAR bit (port FE bit 6), as the reference |
-| SD tape loader | PicoRV32 (RV32IMC) at 56 MHz + firmware in `fw/`: OSD file browser (350 entries), plays .tap/.tzx from a microSD card T-state exact, records SAVE output into .tap files; turbo or normal speed; .z80 snapshots: F2 saves, the browser loads (`../docs/SD_TAPE_LOADER.md`) |
+| Tape | SD tape loader (EAR = loader while it plays, else the beeper) |
+| SD tape loader | ESP32 system controller (`esp32/`) with the microSD card, over an SPI link (`rtl/esp_link.v`) to the FPGA's loader hardware (`rtl/tape_loader.v`): OSD file browser (320 entries), plays .tap/.tzx T-state exact, records SAVE output into .tap files; turbo or normal speed; .z80 snapshots: F2 saves, the browser loads (`../docs/SD_TAPE_LOADER.md`) |
 
 ## Controls
 
 | Control | Function |
 |---|---|
-| KEY0 (W13) | reset: CPU, ports, ROM reload, tape loader. The video mode is kept. |
+| KEY0 (W13) | reset: CPU, ports, ROM reload, tape loader (the ESP32 restarts, Bluetooth reconnects). The video mode is kept. |
 | Ctrl+Alt+Del | reset of the Spectrum only (the tape loader keeps running) |
 | F1 | **held while the CPU starts** (power-up, KEY0, Ctrl+Alt+Del): DiagROM instead of the 128K ROM |
+| F3 | Bluetooth audio menu: scan, connect, PIN, volume; F3 / Esc closes |
 | F8 | swap 60/50 Hz video. Power-up default is 640x480@60 (accepted by every monitor; 576p50 is not). |
 | F12 / keypad / / NumLock | SD tape loader browser (keys: `../docs/SD_TAPE_LOADER.md`); keypad 5 / F11 pause-continue, keypad - back one block, F7 / keypad * stop. First browser line [Save to this folder]: name, then recording until F12 |
 | F6 | tape speed for loading and saving: turbo (default) / normal |
 | F2 | save a snapshot of the whole machine: type a name, Enter -> NAME.Z80 in the browser's current folder. Load: F12, choose the .z80, Enter |
 | KEY1 (Y13) | not used |
-| TURBO_N | low = 28 MHz CPU (external tape simulator; pull-up = normal speed). The SD loader sets turbo itself while playing or saving a block (unless F6 chose normal speed). |
 | LED | on = turbo; fast blink = no ROM image in the flash (program the .jic) |
 
 Keyboard: letters, digits, Enter, Space; Left Shift = CAPS SHIFT; Right Shift / Ctrl = SYMBOL SHIFT;
@@ -51,29 +51,29 @@ At power-up the CPU waits for the first keyboard packet (at most 1.5 s) so a hel
 | `rtl/cpu_t80.v` | T80 wrapper (T80se-style, exports MC/TS/decode) |
 | `rtl/zx_video.v` | Spectrum picture (2x2 pixels, borders, FLASH) + screen shadows + OSD overlay |
 | `rtl/zx_keyboard.v` | UART + packet parser -> 8x5 key matrix, loader keys, F1, F8, Ctrl+Alt+Del |
-| `rtl/tape_loader.v` | SD tape loader: PicoRV32, 32 KB RAM (firmware from `fw/build/fw0..3.hex`), SPI, command FIFO, pulse player, MIC recorder with CPU hold, OSD port |
-| `rtl/picorv32/` | PicoRV32 (YosysHQ, ISC licence), unmodified, see SOURCE.md |
-| `rtl/osd_font.hex` | OSD font (Spectrum character set, made by `fw/tools/mkfont.py` from `../roms/zx128.rom`) |
-| `fw/` | loader firmware (C, RV32IMC): `build.sh`, browser `main.c`, `sd.c` (read/write), `fat.c` (read, create files), `tape.c` (TAP/TZX), `save.c` (recording); `test/` PC tests; `tools/` image/test generators, FAT checker |
+| `rtl/tape_loader.v` | loader hardware: register bus, command FIFO, pulse player, MIC recorder with CPU hold, snapshot port, OSD port, UART to the ESP32's Bluetooth part |
+| `rtl/esp_link.v` | SPI slave for the ESP32 (8 MHz, frames WR/RD/OSD/FIFO/MWR/MRD/STAT), master of the loader's register bus; IRQ pin |
+| `rtl/osd_font.hex` | OSD font (Spectrum character set, made by `esp32/tools/mkfont.py` from `../roms/zx128.rom`) |
+| `esp32/` | ESP32 system controller (Arduino sketch `esp32.ino`): SD tape loader firmware in `src/` (browser `main.cpp`, `fat.cpp`, `tape.cpp`, `save.cpp`, `snap.cpp`, `bt.cpp`; `hw.h` + `esp_hw.cpp` = link, SD, OSD) and Bluetooth audio; `test/` PC tests, `tools/` card image / test generators, FAT checker (`esp32/README.md`) |
 | `rtl/rom_loader.v`, `rtl/flash_if.v` | flash READ -> SDRAM; bit-order auto-detect (the .jic stores the data bit-reversed) |
 | `rtl/sd_dac.v` | sigma-delta audio DAC |
+| `rtl/bt_i2s.v` | AY + beeper as I2S (slave, Philips 16 bit, 44.1 kHz from the ESP32's clocks), low-passed, DC-free; pins BT_BCLK H1 / BT_LRCK H2 / BT_DATA F1 (U7.17-19) |
 | `rtl/sdram_ram.v`, `rtl/sys_pll.v` | copies from DDR_TEST |
 | `rtl/vga_pll.v`, `rtl/vga_clkmux.v`, `rtl/vga_timing.v` | copies from VGA_TEST |
 | `rtl/jt49/` | JT49 AY core (Jose Tejada, GPL-3), as used in the reference |
 | `sim/run_sim.sh [defines]` | whole-machine Questa simulation (flash model -> loader -> SDRAM model -> T80 boot); writes `screen.png` |
-| `sim/run_loader_sim.sh` | tape loader alone with an SD card model (read/write): boot, browser, play a TZX T-state exact vs the reference, Stop, recording a ROM-style save, F6 |
+| `sim/run_esp_link_sim.sh` | tape_loader driven over the SPI link by an ESP32 model: ID, registers, OSD, FIFO, MWR/MRD bursts, error flag, IRQ |
 | `sim/run_float_sim.sh`, `sim/run_floatgame_sim.sh [game.z80]` | floating bus: IN A,(FF) against Fuse's 128K rule; a real game (default Sidewize) with every floating-bus read and sync-loop exit compared with Fuse |
-| `sim/run_tapeload_sim.sh` | whole machine: 128K "Tape Loader", F12, Enter: the ROM loads a BASIC program from the card image (~40 min) |
-| `releases/v1_2026-10-06/` | the first hardware-proven .sof/.jic (before the tape loader) |
+| `sim/run_bt_i2s_sim.sh` | bt_i2s against an ESP32-like I2S master, 16- and 32-bit slots: bit-exact words, beeper swing, DC removal |
 
 ## Build and program
 
 ```
-fw/build.sh                                  # loader firmware -> fw/build/fw0..3.hex (xPack riscv-none-elf-gcc)
 quartus_sh --flow compile ASpectrum
 quartus_cpf -c ASpectrum.cof                 # -> output_files/ASpectrum.jic (bitstream + ROMs)
+arduino-cli compile -b esp32:esp32:esp32 -u -p COM10 esp32     # ESP32: loader + Bluetooth (esp32/README.md)
 ```
-The firmware is part of the bitstream (block RAM contents): after changing `fw/`, run `fw/build.sh` and compile again.
+The loader firmware runs on the ESP32: after changing `esp32/`, only the ESP32 is flashed again.
 Program `output_files/ASpectrum.jic` once (Programmer, JTAG, Program/Configure, power-cycle): it puts the
 ROMs into the flash. After that, `.sof` loads over JTAG are enough during development (ROMs stay in flash).
 If the LED blinks fast after loading a .sof, the flash has no ROM image: program the .jic.
@@ -86,4 +86,6 @@ If the LED blinks fast after loading a .sof, the flash has no ROM image: program
   the 50 Hz mode (PgUp/PgDn move the interrupt). Current list: `../docs/KNOWN_ISSUES.md`.
 - Keyboard module UART direction not confirmed: both lines are inputs with pull-ups, RX = KBD_A AND KBD_B
   (works whichever line carries the data). Nothing is sent to the module.
+- The ESP32 (`esp32/README.md`, `../docs/ASpectrum_Connection.docx`) is needed for the SD card, the browser and
+  Bluetooth; without it the Spectrum boots and runs, but F12 does nothing.
 - Joystick and AY/beeper audio need the J1 -> U7 wiring. The adapter's 50/60 switch S1 is not used (D2 unassigned).

@@ -48,7 +48,7 @@ const bullet = t => new Paragraph({ numbering: { reference: "bullets", level: 0 
 const gap = () => new Paragraph({ spacing: { after: 60 }, children: [] });
 
 // numbering instances: each procedure restarts at 1
-const procs = ["load", "multi", "rewind", "save", "snapsave", "snapload", "border", "diag", "reset"];
+const procs = ["load", "multi", "rewind", "save", "snapsave", "snapload", "border", "diag", "reset", "bt"];
 const numbering = {
   config: [
     { reference: "bullets", levels: [{ level: 0, format: LevelFormat.BULLET, text: "•", alignment: AlignmentType.LEFT,
@@ -61,7 +61,7 @@ const stepOf = ref => t => new Paragraph({ numbering: { reference: ref, level: 0
 
 const children = [
   new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: "ASpectrum — extra keys", bold: true, size: 40, font: FONT, color: "1F3864" })] }),
-  new Paragraph({ spacing: { after: 240 }, children: [new TextRun({ text: "ZX Spectrum 128K on the QMTECH Cyclone IV board, with the SD card tape loader, snapshots and memory contention (build of 9 October 2026)", size: 21, font: FONT, color: "595959" })] }),
+  new Paragraph({ spacing: { after: 240 }, children: [new TextRun({ text: "ZX Spectrum 128K on the QMTECH Cyclone IV board, with the SD card tape loader, snapshots, memory contention and Bluetooth audio (build of 13 October 2026)", size: 21, font: FONT, color: "595959" })] }),
 
   p("All keys below are on the USB keyboard unless a board button is named. Keys that the Spectrum itself uses (letters, digits, Enter, Space, Shift) work as on a real 128K and are listed at the end."),
 
@@ -72,6 +72,8 @@ const children = [
        "Keep holding F1 until the DiagROM screen appears. See \"Starting the test ROM\" below."]],
     ["**F2**", "Saves a snapshot of the whole machine as a .z80 file",
       ["The Spectrum stops at once and asks for a name. See \"Saving and loading snapshots\" below."]],
+    ["**F3**", "Opens the Bluetooth audio menu",
+      ["For Bluetooth headphones or a speaker (through the ESP32 board). Scan, connect, PIN, volume. F3 or Esc closes it; a tape that is playing goes on. See \"Sound on Bluetooth headphones or a speaker\" below."]],
     ["**F5**", "Switches memory contention on (default) / off",
       ["Contention is the slowing of the processor while the screen is drawn, as on a real Spectrum; timing-critical games and border effects need it. F5 also switches the floating bus (port FF reads the screen, as on the real machine; a few games use it, e.g. Sidewize, Arkanoid and Cobra, and stop with F5 off). Shows \"Contention: on\" or \"off\" for 4 seconds. Back to on after KEY0 or power-up. Never active in turbo."]],
     ["**F6**", "Switches tape loading and saving between turbo (default) and normal speed",
@@ -84,7 +86,7 @@ const children = [
     ["**Ctrl + Alt + Del**", "Resets the Spectrum",
       ["Like pressing reset on the machine: the ROMs are reloaded and the 128K menu comes back.",
        "The SD tape loader is not reset: a tape that is playing keeps its place (pause it first with keypad 5 if you want it to stop)."]],
-    ["**KEY0** (board button W13)", "Resets everything, including the SD tape loader", ["The video mode is kept."]],
+    ["**KEY0** (board button W13)", "Resets everything, including the SD tape loader", ["The video mode is kept. The ESP32 restarts with it; Bluetooth headphones reconnect after a few seconds."]],
     ["KEY1 (board button Y13)", "Not used", ["It used to select DiagROM and swap 50/60; that is now F1 and F8."]],
   ]),
 
@@ -169,11 +171,20 @@ const children = [
   stepOf("reset")("**Ctrl + Alt + Del**: the Spectrum restarts; a tape that is playing is not touched."),
   stepOf("reset")("**KEY0**: everything restarts, including the tape loader (the SD card is read again)."),
 
+  h2("Sound on Bluetooth headphones or a speaker"),
+  p("The Spectrum's sound (AY and beeper) also goes to an ESP32 board wired to the FPGA board (see ASpectrum_Connection.docx), which sends it to Bluetooth headphones or a speaker. Everything is done from the **F3** menu; the ESP32 remembers the device and reconnects by itself when both are switched on."),
+  stepOf("bt")("Put the headphones or speaker into pairing mode."),
+  stepOf("bt")("Press **F3**. The second line shows the state (Not connected / Connected: name)."),
+  stepOf("bt")("Choose **Scan for devices** and press **Enter**. After a few seconds the devices found are listed at the bottom (an old device may show (no name))."),
+  stepOf("bt")("Move down to the device and press **Enter**. The second line changes to **Connected: name**."),
+  stepOf("bt")("Press **F3** (or Esc) to close the menu."),
+  p("Other lines of the menu: **Disconnect**; **Forget the device** (it will not reconnect by itself); **PIN** (Enter, type the code, Enter; empty = auto); **Volume** (Left / Right); **Sound: Spectrum / test tone** (Enter swaps; the test tone checks the Bluetooth side alone)."),
+  p("Old devices that need a PIN code are paired automatically with 0000, 1234, 8888 and 1111 in turn (one try per connection attempt, about 20 seconds each; the bottom line shows the PIN being tried). If the device uses another code, set it under PIN before connecting. Bluetooth adds about 0.2 s of delay: fine for music, noticeable in fast games. If the menu says **No answer from the ESP32**, check its power and the wires."),
+
   h1("Good to know"),
   bullet("SD card: FAT32 or FAT16. exFAT does not work (most cards larger than 32 GB come as exFAT: format them as FAT32)."),
-  bullet("Folders work. The browser shows folders first, then files, sorted by name, up to 350 per folder; long names are shown up to 27 characters."),
+  bullet("Folders work. The browser shows folders first, then files, sorted by name, up to 320 per folder; long names are shown up to 27 characters."),
   bullet("Unmodified .tap and .tzx files are played and .z80 snapshots are loaded; no conversion on the PC is needed."),
-  bullet("The external tape simulator on the adapter (TAPE_IN, TURBO_N) still works as before."),
   bullet("If the browser says **No SD card, or not FAT16/FAT32**, insert the card and press Enter to try again."),
 
   h1("Spectrum keys on the USB keyboard"),

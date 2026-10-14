@@ -17,11 +17,12 @@
 //   4 0 9 8 7 6      5 P O I U Y   6 ENT L K J H 7 SPC SYM M N B
 //
 // Machine and loader keys (docs/SD_TAPE_LOADER.md):
-//   lkeys (1 = held, read by the tape loader CPU, fw/hw.h K_*):
+//   lkeys (1 = held, read by the ESP32 loader firmware, esp32/src/hw.h K_*):
 //     0 F12 / keypad / / NumLock   1 keypad 8 / F9 / Up      2 keypad 2 / F10 / Down
 //     3 keypad 4 / Left            4 keypad 6 / Right        5 keypad Enter / Enter
 //     6 F11   7 keypad 5   8 keypad -   9 Esc / Backspace   10 F7 / keypad *   11 F6
 //     12 F2 (save a snapshot)   13 Page Up   14 Page Down   15 F5 (contention on/off)
+//     16 F3 (Bluetooth audio menu)
 //   f1      F1 held (DiagROM when the CPU starts)
 //   f8_tgl  toggles on every F8 press (50/60 Hz video)
 //   cad     Ctrl + Alt + Del held (machine reset)
@@ -41,7 +42,7 @@ module zx_keyboard #(
     input  wire        rx,              // asynchronous
     input  wire        block,           // asynchronous: release all Spectrum keys
     output reg  [39:0] rows,
-    output reg  [15:0] lkeys,
+    output reg  [16:0] lkeys,
     output reg         f1,
     output reg         f8_tgl,
     output reg         cad,
@@ -166,7 +167,7 @@ always @(posedge clk or negedge rst_n)
         k2      <= 8'd0;
         k3      <= 8'd0;
         zx_rows <= {40{1'b1}};
-        lkeys   <= 16'd0;
+        lkeys   <= 17'd0;
         f1      <= 1'b0;
         f8_tgl  <= 1'b0;
         f8_held <= 1'b0;
@@ -186,7 +187,8 @@ always @(posedge clk or negedge rst_n)
                     zx_rows <= ~(one_key(k1) | one_key(k2) | one_key(k3) |
                                  {39'd0, mods[1]} |                              // Left Shift  -> CAPS (bit 0)
                                  ({39'd0, mods[5] | mods[0] | mods[4]} << 36));  // RShift/Ctrl -> SYM (bit 36)
-                    lkeys <= {has(8'h3E),                               // 15 F5
+                    lkeys <= {has(8'h3C),                               // 16 F3
+                              has(8'h3E),                               // 15 F5
                               has(8'h4E),                               // 14 Page Down
                               has(8'h4B),                               // 13 Page Up
                               has(8'h3B),                               // 12 F2

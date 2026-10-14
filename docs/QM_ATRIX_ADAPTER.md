@@ -24,7 +24,7 @@ Netlists below were extracted with `kicad-cli` (schematic) and by parsing the `.
 - J1 (JP2) and J2 (JP3): 2x25 2.54 mm headers on the **bottom** side, 50.8 mm (2.0") apart — they plug into the
   Artix board. Only the odd-numbered side of a few pins is used; all signals are 3.3 V.
 - Front side: VGA DB15 (J7, at the board edge), Atari/Kempston DB9 male (J4), 50/60 Hz slide switch (S1),
-  pin headers for the keyboard module (J5), tape module (J6), audio module (J3) and two volume pots (RV1, RV2).
+  pin headers for the keyboard module (J5), audio module (J3) and two volume pots (RV1, RV2).
 
 ## Signals on the host headers
 
@@ -48,13 +48,10 @@ J1 = JP2, J2 = JP3. Pins not listed are unconnected.
 | J2.14 / J2.16 | RL / RH | out | red low / high bit |
 | J2.18 | HS | out | 6p8 to GND, R 22 Ω → VGA pin 13 |
 | J2.20 | VS | out | 6p8 to GND, R 22 Ω → VGA pin 14 |
-| J2.40 | Tape_out | out | J6.6 — **never used** (tape is load-only) |
-| J2.42 | Tape_in | in | J6.5 |
-| J2.44 | Turbo | in | J6.1, 680 Ω pull-up to 3v3 (fitted on the real board; in the schematic, missing from the PCB file) |
 | J2.46 | Kb_out | out? | J5.2 (3.3 V logic) |
 | J2.48 | Kb_in | in? | J5.3 (3.3 V logic) |
 
-21 signals on the headers (20 used — Tape_out never used): 8 VGA, 2 audio, 2 keyboard UART, 3 tape/turbo, 1 switch, 5 joystick.
+18 signals on the headers: 8 VGA, 2 audio, 2 keyboard UART, 1 switch, 5 joystick.
 
 ## On-board circuits
 
@@ -68,30 +65,24 @@ J1 = JP2, J2 = JP3. Pins not listed are unconnected.
 - **Keyboard** (J5, footprint `USB_MODULE_KEYB_V2`): 1 GND, 2 Kb_out, 3 Kb_in, 4 5 V — the USB-HID→UART module
   (CH9350-style, 115200 baud, as in `Reference_ZX_On_DE10_Lite`). 5 V is only the USB power pass-through; the
   UART levels are 3.3 V (confirmed by the user), so it connects directly to Cyclone IV pins.
-- **Tape** (J6): 1 Turbo, 2 n.c., 3 3v3, 4 GND, 5 Tape_in, 6 Tape_out — header to the tape simulator module,
-  which also supplies the Turbo level. Turbo is **active low**: the loader pulls it low for turbo and releases it
-  for normal speed; with no loader connected the 680 Ω pull-up on the adapter (fitted on the real board, see
-  below) keeps it high (= normal). The FPGA weak pull-up can stay on as well (harmless). Tape_out was never used: the tape path is load-only.
 - **Audio** (J3, footprint `audio_pcb`): 1 Beeper channel, 2 GND, 3 AY channel, 4 5 V, 5 GND — header for a 5 V
   audio amplifier module. RV1 (AY) / RV2 (beeper) are 1 kΩ volume pots on 3-pin headers (wiper → J3).
 - **Power**: 4x 100 nF on 3v3, 4x 100 nF on 5v0. The schematic also has U1 `7803_switcing` (switching 7803
   drop-in, 5v0 → 3v3). It is missing from the PCB file but **fitted on the real board** (user, 2026-10-06), so the
-  adapter makes its own 3v3 from 5v0 (feeds the joystick 3k3 and Turbo 680 Ω pull-ups and the 50/60 switch).
+  adapter makes its own 3v3 from 5v0 (feeds the joystick 3k3 pull-ups and the 50/60 switch).
   Only 5v0 + GND are needed from the host. Do not also tie the host 3V3 to the adapter's 3v3 rail (two regulators in
   parallel) unless a continuity check shows the header 3v3 pins are isolated on the real board.
 
 ## Schematic vs PCB
 
-Both date from Mar 2024. The 2024 schematic already contained two **unannotated** parts (`U?` = 7803 regulator,
-`R?` = 680 Ω Turbo pull-up) that were never transferred to the PCB file. The KiCad 10 conversion (2026-10-06) annotated
-them, which shifted the resistor numbering. The netlists differ as follows. **The PCB file is not exactly the real board**: the user confirmed
-(2026-10-06) that the 680 Ω Turbo pull-up **is fitted** on the real board (hand-added, probably a version mismatch
-between schematic and PCB). The 7803 is fitted too. So for these two parts the real board follows the **schematic**, not the PCB file.
+Both date from Mar 2024. The 2024 schematic already contained **unannotated** parts (`U?` = 7803 regulator) that
+were never transferred to the PCB file. The KiCad 10 conversion (2026-10-06) annotated them, which shifted the
+resistor numbering. The netlists differ as follows. **The PCB file is not exactly the real board**: the 7803 is
+fitted on the real board (user, 2026-10-06), so for it the real board follows the **schematic**, not the PCB file.
 
 | Item | PCB / gerbers (built) | Converted schematic |
 |---|---|---|
 | 3v3 source | host header pins J1.2 / J2.2 | U1 7803 from 5v0; J1.2 / J2.2 unconnected — **real board: 7803 fitted** |
-| Turbo pull-up | none in the file — **but fitted on the real board** | R9 680 Ω to 3v3 |
 | Joystick pull-ups | R9 Up, R10 Btn, R11 Dwn, R14 Lft, R15 Rght | R10 Up, R11 Btn, R12 Dwn, R15 Lft, R16 Rght |
 | HS / VS series 22 Ω | R12 / R13 | R13 / R14 |
 | DB9 shield (J4 pad 0) | no net | GND |
@@ -99,7 +90,7 @@ between schematic and PCB). The 7803 is fitted too. So for these two parts the r
 ## Connecting to the Cyclone IV board — prototype (decided 2026-10-06)
 
 **Prototype only, not the final hardware.** The user's last schematic/PCB revision was lost; the KiCad files are an
-earlier one (which is why the 7803 and the Turbo pull-up are fitted on the board but missing from the PCB file).
+earlier one (which is why the 7803 is fitted on the board but missing from the PCB file).
 
 As built by the user:
 - Adapter **J2 plugged straight into U8**, J2 pin 1 on U8 pin 64 (J2 pin k -> U8 pin 65-k). The analog VGA
@@ -115,7 +106,6 @@ Full pin tables: `BOARD_PINOUT.md`, section "ZX Spectrum I/O assignment — prot
 |---|---|---|
 | BL BH GL GH RL RH (J2.6-16) | U8 59 57 55 53 51 49 = M20 N20 B22 C22 D22 E22 | VGA_B_LOW VGA_B VGA_G_LOW VGA_G VGA_R_LOW VGA_R |
 | HS, VS (J2.18, J2.20) | U8 47, 45 = F22, H22 | VGA_HSYNC, VGA_VSYNC |
-| Tape_out, Tape_in, Turbo (J2.40-44) | U8 25, 23, 21 = W22, Y22, AA20 | unused (input), TAPE_IN, TURBO_N |
 | Kb_out, Kb_in (J2.46, J2.48) | U8 19, 17 = AA19, AA18 | keyboard UART (direction to confirm) |
 | GND (J2.49, J2.50) | U8 16, 15 = AB17, AA17 | FPGA I/O tied to GND: never drive high |
 | AY, Beeper (J1.17, J1.19) | U7 15, 16 = J1, J2 | AUDIO_AY, AUDIO_BEEPER |

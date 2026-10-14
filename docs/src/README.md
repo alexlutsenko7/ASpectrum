@@ -6,3 +6,7 @@ Paper: US Letter, 1-inch margins.
     node keys_doc.js ../ASpectrum_Keys.docx
     python3 architecture_diagram.py ../../ASpectrum/rtl/osd_font.hex arch.png   # block diagram, Spectrum font
     node architecture_doc.js ../ASpectrum_Architecture.docx arch.png
+    python3 connection_diagram.py ../../ASpectrum/rtl/osd_font.hex conn.png    # wiring overview
+    node connection_doc.js ../ASpectrum_Connection.docx conn.png
+
+ASpectrum_FKeys.docx has no generator (export of a claude.ai doc); its F3 row was added by editing the .docx XML.
