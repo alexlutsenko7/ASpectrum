@@ -16,14 +16,16 @@ Status: working on hardware (October 2026).
   clock enable and simply waits when the SDRAM is busy. The screen is mirrored in block RAM for the video.
 - **Video**: VGA 720x576@50 (576p) or 640x480@60, 2 bits per colour, switchable at run time.
 - **USB keyboard** through a CH9350-style UART module, with machine keys: DiagROM, 50/60 Hz, reset.
-- **SD card tape loader** (RISC-V PicoRV32 soft CPU with firmware in C):
-  - on-screen browser (folders, long names, up to 350 entries), FAT16 / FAT32;
+- **SD card tape loader** on an ESP32 system controller (firmware in C, SPI link to the FPGA):
+  - on-screen browser (folders, long names, up to 320 entries), FAT16 / FAT32;
   - plays TAP and TZX (incl. turbo blocks, pure tones, pulse sequences, direct recordings, loops, jumps, calls,
     stop blocks) T-state exact, in turbo (8x) or at normal speed;
   - saves: everything the Spectrum `SAVE`s goes into a `.tap` file on the card;
   - pause, back one block, stop;
   - **snapshots**: F2 saves the whole machine as a `.z80` (version 3, 128K) at any moment; the browser loads
     `.z80` files (versions 1-3, 48K and 128K).
+- **Bluetooth audio**: the same ESP32-WROOM-32 (`ASpectrum/esp32/`, Arduino) takes the sound as I2S and sends it to Bluetooth
+  speakers / headphones (A2DP), including old PIN-only devices; F3 opens the on-screen Bluetooth menu.
 - **Fully constrained timing**: every clock and I/O constrained, timing met at all corners.
 
 ## Hardware
@@ -31,8 +33,9 @@ Status: working on hardware (October 2026).
 | Part | Notes |
 |---|---|
 | QMTECH Cyclone IV core board | EP4CE15F23C8N, 50 MHz oscillator, W9825G6KH-6 SDRAM (32 MB), W25Q64 configuration flash |
-| I/O adapter (own design) | VGA resistor DAC, audio (AY + beeper) to an amplifier, Kempston DB9, USB keyboard module (UART, 3.3 V), tape input, turbo input, 50/60 switch |
-| microSD | Adafruit 5683 "MicroSD Card BFF" (bare socket, SPI), 10 uF + 100 nF added |
+| I/O adapter (own design) | VGA resistor DAC, audio (AY + beeper) to an amplifier, Kempston DB9, USB keyboard module (UART, 3.3 V), 50/60 switch |
+| ESP32-WROOM-32 dev board | system controller: SD card, tape loader, Bluetooth audio; wired to U7 (`ASpectrum/esp32/README.md`) |
+| microSD | Adafruit 5683 "MicroSD Card BFF" (bare socket, SPI) on the ESP32, 10 uF + 100 nF added |
 
 Pin assignments: `docs/BOARD_PINOUT.md`. Adapter: `docs/QM_ATRIX_ADAPTER.md`.
 
@@ -40,7 +43,8 @@ Pin assignments: `docs/BOARD_PINOUT.md`. Adapter: `docs/QM_ATRIX_ADAPTER.md`.
 
 | Folder | Contents |
 |---|---|
-| `ASpectrum/` | **The Spectrum**: Quartus project, `rtl/` (Verilog), `fw/` (tape loader firmware), `sim/` (Questa testbenches), `output_files/ASpectrum.jic` (ready-to-program image) |
+| `ASpectrum/` | **The Spectrum**: Quartus project, `rtl/` (Verilog), `esp32/` (ESP32 firmware: tape loader + Bluetooth), `sim/` (Questa testbenches), `output_files/ASpectrum.jic` (ready-to-program image) |
+| `tests/` | hardware test tools: `Test_wires/` (ESP32 <-> FPGA wiring), `ESPLinkTest/` (SPI link), `t80_fmax/` |
 | `T80/` | Z80 core (VHDL), from the MiSTer ZX Spectrum core, unchanged (`T80/SOURCE.md`) |
 | `DDR_TEST/` | stand-alone SDRAM controller + memory test (the controller used by ASpectrum) |
 | `VGA_TEST/` | stand-alone VGA test (colour bars, both video modes) |
@@ -48,18 +52,19 @@ Pin assignments: `docs/BOARD_PINOUT.md`. Adapter: `docs/QM_ATRIX_ADAPTER.md`.
 
 ## Building
 
-Tools: Quartus Prime 25.1std Lite (Windows), xPack GNU RISC-V Embedded GCC (`riscv-none-elf-gcc`) for the
-firmware. The scripts are written for WSL on Windows and call the Windows tools; paths are at the top of each script.
+Tools: Quartus Prime 25.1std Lite (Windows) for the FPGA; Arduino (core esp32 3.3.2, `arduino-cli`) for the ESP32
+(libraries: `ASpectrum/esp32/README.md`). The scripts are written for WSL on Windows and call the Windows tools;
+paths are at the top of each script.
 
 ```
 cd ASpectrum
-bash fw/build.sh                                 # firmware -> fw/build/fw0..3.hex (part of the bitstream)
 quartus_sh --flow compile ASpectrum              # -> output_files/ASpectrum.sof
 quartus_cpf -c ASpectrum.cof                     # -> output_files/ASpectrum.jic (bitstream + ROMs)
+arduino-cli compile -b esp32:esp32:esp32 -u -p COM10 esp32       # ESP32 firmware (loader + Bluetooth)
 ```
 
-Run `fw/build.sh` before compiling whenever the firmware changes. The ROM images (`roms48k.hex`) are added to the
-`.jic` at flash offset 0x100000 and copied into SDRAM at every reset.
+The ROM images (`roms48k.hex`) are added to the `.jic` at flash offset 0x100000 and copied into SDRAM at every reset.
+A change in `ASpectrum/esp32/` needs only the ESP32 flashed again; a change in `ASpectrum/rtl/` a new compile.
 
 ## Programming
 
@@ -94,12 +99,10 @@ The complete key list with step-by-step usage is in `docs/ASpectrum_Keys.docx`.
 ## Testing
 
 ```
-bash ASpectrum/fw/test/run_host_test.sh          # PC: FAT reading/writing, every TAP/TZX signal vs a Python reference
-bash ASpectrum/sim/run_loader_sim.sh             # RTL: tape loader with an SD card model (play, stop, save)
+bash ASpectrum/esp32/test/run_host_test.sh       # PC: FAT reading/writing, every TAP/TZX signal vs a Python reference, saving, .z80
+bash ASpectrum/sim/run_esp_link_sim.sh           # RTL: loader hardware driven over the SPI link by an ESP32 model
 bash ASpectrum/sim/run_sim.sh                    # RTL: whole machine boots the 128K ROM
-bash ASpectrum/sim/run_tapeload_sim.sh           # RTL: the 128K ROM loads a program from the SD card (~70 min)
 bash ASpectrum/sim/run_snap_sim.sh               # RTL: snapshot freeze / restore with the real T80
-bash ASpectrum/sim/run_snapsys_sim.sh            # RTL: whole machine + firmware: F2 save, F12 load back
 bash ASpectrum/sim/run_cont_sim.sh               # RTL: memory contention (NOPs per line in contended RAM: 57 / 41)
 bash ASpectrum/sim/run_float_sim.sh              # RTL: floating bus (IN A,(FF) against Fuse's 128K rule)
 bash ASpectrum/sim/run_floatgame_sim.sh          # RTL: a .z80 game's floating-bus sync vs Fuse (default Sidewize)
@@ -129,5 +132,5 @@ The project's own files are under the MIT licence (`LICENSE`). Third-party parts
 |---|---|
 | `T80/` (Z80 core, Daniel Wallner; Sorgelig) | BSD-style, see the file headers |
 | `ASpectrum/rtl/jt49/` (AY-3-8910 core, Jose Tejada) | **GPL-3**: a bitstream that includes it is a GPL-3 work |
-| `ASpectrum/rtl/picorv32/` (PicoRV32, Claire Xenia Wolf) | ISC (`COPYING`) |
+| `ASpectrum/esp32/` uses ESP32-A2DP (Phil Schatzmann) | Apache-2.0 (library, not included) |
 | ROM images in `ASpectrum/roms48k.hex` and `ASpectrum/sim/roms.mem` | ZX Spectrum 128 ROMs (c) Amstrad, distributed for emulator use with permission, copyright messages unchanged; DiagROM by its authors |
